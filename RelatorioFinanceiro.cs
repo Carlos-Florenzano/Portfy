@@ -3,10 +3,10 @@ public class RelatorioFinanceiro
     public RelatorioFinanceiro() {}
     public RelatorioFinanceiro(string cliente, int valores, string tipo_invest, string nome_invest, double valor_invest, int ativos)
     {
-        Cliente = cliente; 
+        Cliente = cliente; //Ver isso sobre o sqlite
         Valores = valores;
-        Tipo_Invest = tipo_invest; 
-        Nome_Invest = nome_invest; 
+        Tipo_Invest = tipo_invest; // Renda Fixa e Renda Variável
+        Nome_Invest = nome_invest; // para CDB, LCA, Tesouro Direto, Poupança e outros
         Valor_Invest = valor_invest;
         Ativos = ativos;
     }
@@ -18,4 +18,5 @@ public class RelatorioFinanceiro
     public double Valor_Invest {get; set;}
     public int Ativos {get; set;}
 
+// Quando surgir novas informações, irei adicionar novos métodos e/ou modifica-los
 }
