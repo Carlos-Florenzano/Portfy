@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("portfy")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c177035d6618bd294e1122f21b03ec68b1c8fac3")]
 [assembly: System.Reflection.AssemblyProductAttribute("portfy")]
 [assembly: System.Reflection.AssemblyTitleAttribute("portfy")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
