@@ -1,0 +1,14 @@
+C:\Users\Lucas\Desktop\projetos\portfy\bin\Debug\net10.0\portfy.exe
+C:\Users\Lucas\Desktop\projetos\portfy\bin\Debug\net10.0\portfy.deps.json
+C:\Users\Lucas\Desktop\projetos\portfy\bin\Debug\net10.0\portfy.runtimeconfig.json
+C:\Users\Lucas\Desktop\projetos\portfy\bin\Debug\net10.0\portfy.dll
+C:\Users\Lucas\Desktop\projetos\portfy\bin\Debug\net10.0\portfy.pdb
+C:\Users\Lucas\Desktop\projetos\portfy\obj\Debug\net10.0\portfy.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Lucas\Desktop\projetos\portfy\obj\Debug\net10.0\portfy.AssemblyInfoInputs.cache
+C:\Users\Lucas\Desktop\projetos\portfy\obj\Debug\net10.0\portfy.AssemblyInfo.cs
+C:\Users\Lucas\Desktop\projetos\portfy\obj\Debug\net10.0\portfy.csproj.CoreCompileInputs.cache
+C:\Users\Lucas\Desktop\projetos\portfy\obj\Debug\net10.0\portfy.dll
+C:\Users\Lucas\Desktop\projetos\portfy\obj\Debug\net10.0\refint\portfy.dll
+C:\Users\Lucas\Desktop\projetos\portfy\obj\Debug\net10.0\portfy.pdb
+C:\Users\Lucas\Desktop\projetos\portfy\obj\Debug\net10.0\portfy.genruntimeconfig.cache
+C:\Users\Lucas\Desktop\projetos\portfy\obj\Debug\net10.0\ref\portfy.dll
