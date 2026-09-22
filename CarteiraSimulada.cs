@@ -1,95 +1,180 @@
 using System;
 using System.Collections.Generic;
-using Portfy.ModuloInvestimentos; //já importa o namespace do Ativo.cs, então não precisa importar novamente.
+using System.Linq;
+using SimuladorFinanceiro;
+using PortfyModuloInvestimentos;
+
+namespace PortfyModuloInvestimentos;
 
 public class CarteiraSimulada
 {
-    public CarteiraSimulada() {}// Construtor padrão, caso queira criar uma carteira sem saldo inicial.
+    // Objeto de sincronização para garantir Thread Safety em ambientes multithread
+    private readonly object _lock = new();
 
-    public CarteiraSimulada(int saldo)
+    // Propriedades com private set para integridade dos dados
+    public decimal SaldoDisponivel { get; private set; }
+
+    // Listas internas privadas para proteger o estado do objeto
+    private readonly List<Posicao> _posicoes = new();
+    private readonly List<AporteSimulado> _aportes = new();
+
+    // Propriedades públicas apenas para leitura (Exposição segura de coleções)
+    public IReadOnlyCollection<Posicao> Posicoes
     {
-        SaldoDisponivel = saldo;
+        get
+        {
+            lock (_lock)
+            {
+                return _posicoes.AsReadOnly();
+            }
+        }
     }
 
-    public int SaldoDisponivel { get; set; }
+    public IReadOnlyCollection<AporteSimulado> Aportes
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _aportes.AsReadOnly();
+            }
+        }
+    }
 
-    public List<Posicao> ListaPosicoes { get; set; } = new List<Posicao>();// Inicializa a lista de posições como uma nova lista vazia, garantindo que não seja nula.
+    // Construtores
+    public CarteiraSimulada()
+    {
+        SaldoDisponivel = 0m;
+    }
 
+    public CarteiraSimulada(decimal saldoInicial)
+    {
+        if (saldoInicial < 0)
+            throw new ArgumentException("O saldo inicial não pode ser negativo.", nameof(saldoInicial));
+
+        SaldoDisponivel = saldoInicial;
+    }
+
+    // Método para receber aportes com proteção de concorrência
+    public void AdicionarAporte(AporteSimulado aporte)
+    {
+        if (aporte == null)
+            throw new ArgumentNullException(nameof(aporte));
+
+        lock (_lock)
+        {
+            _aportes.Add(aporte);
+            SaldoDisponivel += aporte.ValorAportado;
+        }
+    }
+
+    // Método de compra com thread safety (para evitar que, ao pedir mais de uma vez, que caso cada processo seja feito em uma thread, que evite de corromper a lista)
     public void ComprarAtivo(Ativo ativo, int quantidade)
     {
-        decimal valorCompra = ativo.PrecoAtual * quantidade;
+        if (ativo == null)
+            throw new ArgumentNullException(nameof(ativo));
 
-        if (valorCompra > SaldoDisponivel)
+        if (quantidade <= 0)
+            throw new ArgumentException("A quantidade para compra deve ser maior que zero.", nameof(quantidade));
+
+        lock (_lock)
         {
-            Console.WriteLine("Saldo insuficiente.");
-            return;
+            decimal valorTotalCompra = ativo.PrecoAtual * quantidade;
+
+            if (valorTotalCompra > SaldoDisponivel)
+                throw new InvalidOperationException($"Saldo insuficiente para realizar a compra. Saldo atual: R$ {SaldoDisponivel:F2}.");
+
+            Posicao? posicao = _posicoes.FirstOrDefault(p => p.Ativo == ativo);
+
+            if (posicao == null)
+            {
+                _posicoes.Add(new Posicao(ativo, quantidade, ativo.PrecoAtual));
+            }
+            else
+            {
+                posicao.AtualizarPrecoMedioEQuantidade(quantidade, ativo.PrecoAtual);
+            }
+
+            SaldoDisponivel -= valorTotalCompra;
         }
-
-        Posicao? posicao = ListaPosicoes.Find(p => p.Ativo == ativo); //procura na lista de posições se já existe uma posição para o ativo que está sendo comprado. Se encontrar, retorna a posição; caso contrário, retorna null.
-
-        if (posicao == null)
-        {
-            ListaPosicoes.Add(
-                new Posicao(ativo, quantidade, ativo.PrecoAtual)
-            );
-        }
-        else
-        {
-            decimal valorTotal =
-                (posicao.Quantidade * posicao.PrecoMedio) + valorCompra;//Atualiza a quantidade.
-
-            posicao.Quantidade += quantidade;
-            posicao.PrecoMedio = valorTotal / posicao.Quantidade;//Calcula o preço médio da posição existente.
-        }
-
-        SaldoDisponivel -= (int)valorCompra;
     }
 
+    // Método de venda com thread safety (para resolver o problema similar ao do método de compra com thread safety)
     public void VenderAtivo(Ativo ativo, int quantidade)
     {
-        Posicao? posicao = ListaPosicoes.Find(p => p.Ativo == ativo);
+        if (ativo == null)
+            throw new ArgumentNullException(nameof(ativo));
 
-        if (posicao == null || posicao.Quantidade < quantidade)
+        if (quantidade <= 0)
+            throw new ArgumentException("A quantidade para venda deve ser maior que zero.", nameof(quantidade));
+
+        lock (_lock)
         {
-            Console.WriteLine("Quantidade insuficiente para venda.");
-            return;
-        }
+            Posicao? posicao = _posicoes.FirstOrDefault(p => p.Ativo == ativo);
 
-        decimal valorVenda = ativo.PrecoAtual * quantidade;//calcula o valor da venda.
+            if (posicao == null || posicao.Quantidade < quantidade)
+                throw new InvalidOperationException("Quantidade de ativos insuficiente em carteira para realizar a venda.");
 
-        posicao.Quantidade -= quantidade;//diminui a quantidade da posição existente.
-        SaldoDisponivel += (int)valorVenda;//devolve o dinheiro da venda para o saldo disponível.
+            decimal valorVenda = ativo.PrecoAtual * quantidade;
 
-        if (posicao.Quantidade == 0)
-        {
-            ListaPosicoes.Remove(posicao);
+            posicao.ReduzirQuantidade(quantidade);
+            SaldoDisponivel += valorVenda;
+
+            if (posicao.Quantidade == 0)
+            {
+                _posicoes.Remove(posicao);
+            }
         }
     }
 
     public decimal CalcularPatrimonioTotal()
     {
-        decimal patrimonio = SaldoDisponivel;
-
-        foreach (Posicao posicao in ListaPosicoes)
+        lock (_lock)
         {
-            patrimonio += posicao.Quantidade * posicao.PrecoMedio;
+            // Patrimônio Total = Saldo em Dinheiro + Valor Atual das Posições
+            decimal valorTotalEmAtivos = _posicoes.Sum(p => p.Quantidade * p.Ativo.PrecoAtual);
+            return SaldoDisponivel + valorTotalEmAtivos;
         }
-
-        return patrimonio;
     }
 }
 
-
+// Classe Posicao imutável e protegida
 public class Posicao
 {
-    public Ativo Ativo { get; set; }
-    public int Quantidade { get; set; }
-    public decimal PrecoMedio { get; set; }
+    public Ativo Ativo { get; private set; }
+    public int Quantidade { get; private set; }
+    public decimal PrecoMedio { get; private set; }
 
     public Posicao(Ativo ativo, int quantidade, decimal precoMedio)
     {
+        if (ativo == null)
+            throw new ArgumentNullException(nameof(ativo));
+
+        if (quantidade <= 0)
+            throw new ArgumentException("A quantidade da posição deve ser maior que zero.", nameof(quantidade));
+
+        if (precoMedio <= 0)
+            throw new ArgumentException("O preço médio deve ser um valor positivo.", nameof(precoMedio));
+
         Ativo = ativo;
         Quantidade = quantidade;
         PrecoMedio = precoMedio;
+    }
+
+    public void AtualizarPrecoMedioEQuantidade(int quantidadeAdicional, decimal precoAtual)
+    {
+        decimal custoTotalAtual = Quantidade * PrecoMedio;
+        decimal custoNovasAquisicoes = quantidadeAdicional * precoAtual;
+
+        Quantidade += quantidadeAdicional;
+        PrecoMedio = (custoTotalAtual + custoNovasAquisicoes) / Quantidade;
+    }
+
+    public void ReduzirQuantidade(int quantidadeRemovida)
+    {
+        if (quantidadeRemovida > Quantidade)
+            throw new InvalidOperationException("Não é possível remover mais unidades do que as disponíveis na posição.");
+
+        Quantidade -= quantidadeRemovida;
     }
 }

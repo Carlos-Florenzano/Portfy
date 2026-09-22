@@ -2,33 +2,29 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SimuladorFinanceiro
+namespace SimuladorFinanceiro;
+
+public class AporteSimulado
 {
-    public class AporteSimulado
+    public int Id { get; private set; }
+    public DateTime DataAporte { get; private set; }
+    public decimal ValorAportado { get; private set; }
+    public int OrigemSalarioId { get; private set; }
+
+    public AporteSimulado(int id, decimal valorAportado, int origemSalarioId, DateTime? dataAporte = null)
     {
-        // Propriedades
-        public int Id { get; set; }
-        public DateTime DataAporte { get; set; }
-        public decimal ValorAportado { get; set; }
-        public int OrigemSalarioId { get; set; }
+        if (id <= 0)
+            throw new ArgumentException("O ID deve ser positivo.", nameof(id));
 
-        // Armazena o histórico de aportes
-        private static List<AporteSimulado> listaAportes = new List<AporteSimulado>();
+        if (valorAportado <= 0)
+            throw new ArgumentException("O valor aportado deve ser maior que zero.", nameof(valorAportado));
 
-        // Método para registrar um aporte na simulação
-        public void AlocarParaSimulacao()
-        {
-            listaAportes.Add(this);
+        if (origemSalarioId <= 0)
+            throw new ArgumentException("O ID da origem do salário deve ser válido.", nameof(origemSalarioId));
 
-            Console.WriteLine(
-                $"Aporte de R$ {ValorAportado:F2} realizado em {DataAporte:dd/MM/yyyy} " +
-                $"(Origem Salário ID: {OrigemSalarioId}).");
-        }
-
-        // Método para consultar o histórico de aportes
-        public static List<AporteSimulado> HistoricoAportes()
-        {
-            return listaAportes.OrderBy(a => a.DataAporte).ToList();
-        }
+        Id = id;
+        ValorAportado = valorAportado;
+        OrigemSalarioId = origemSalarioId;
+        DataAporte = dataAporte ?? DateTime.Now;
     }
 }
