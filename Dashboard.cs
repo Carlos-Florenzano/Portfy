@@ -51,7 +51,8 @@ public class Dashboard
             Console.WriteLine("3. Comprar / Vender Ativos");
             Console.WriteLine("4. Simular Variação de Mercado (Oscilar Preços)");
             Console.WriteLine("5. Exibir Gráfico de Salário e Patrimônio");
-            Console.WriteLine("6. Simular Variação de Mercado (Oscilar Preços)");
+            Console.WriteLine("6. Exibir Gráfico de Patrimônio");
+            Console.WriteLine("7. Exibir Relatório Financeiro");
             Console.WriteLine("0. Sair");
             Console.WriteLine("==================================================");
 
@@ -68,7 +69,7 @@ public class Dashboard
                 case "2":
                     // Menu/Ação de Aportes
                     MenuAporteSimulado();
-                    PressionarParaContinuar();
+                    // Retirei o método PressionarParaContinuar pois ele ja esta no metodo MenuAporteSimulado
                     break;
                 case "3":
                     // Menu/Ação de Negociação
@@ -87,6 +88,15 @@ public class Dashboard
                 case "6":
                     GerarGraficoPatrimonio();
                     PressionarParaContinuar();
+                    break;
+
+                case "7":
+                    var relatorio = new RelatorioFinanceiro(  //Apenas para mostrar o Relatório
+                        _usuario,
+                        _carteira,
+                        _orcamentos);
+                    relatorio.ExibirRelatorio();
+                    PressionarParaContinuar();   
                     break;
 
                 case "0":
