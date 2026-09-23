@@ -68,7 +68,7 @@ public class Dashboard
                 case "2":
                     // Menu/Ação de Aportes
                     MenuAporteSimulado();
-                    PressionarParaContinuar();
+                    // Retirei o método PressionarParaContinuar pois ele ja esta no metodo MenuAporteSimulado
                     break;
                 case "3":
                     // Menu/Ação de Negociação
