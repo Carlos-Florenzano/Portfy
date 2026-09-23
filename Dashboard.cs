@@ -31,75 +31,75 @@ public class Dashboard
         _mercadoAtivos.Add(new Ativo("BTC", "Bitcoin", TipoAtivo.Cripto, 350000.00m));
     }
 
-public void IniciarMenuPrincipal()
-{
-    bool executar = true;
-
-    while (executar)
+    public void IniciarMenuPrincipal()
     {
-        Console.Clear();
-        Console.WriteLine("==================================================");
-        Console.WriteLine($"   PAINEL FINANCEIRO PORTFY - {_usuario.Nome.ToUpper()}");
-        Console.WriteLine("==================================================");
-        Console.WriteLine($"Salário Mensal:     R$ {_usuario.SalarioMensal:F2}");
-        Console.WriteLine($"Saldo em Carteira:  R$ {_carteira.SaldoDisponivel:F2}");
-        Console.WriteLine($"Patrimônio Total:   R$ {_carteira.CalcularPatrimonioTotal():F2}");
-        Console.WriteLine("==================================================");
-        Console.WriteLine("1. Gerenciar Salário / Orçamento");
-        Console.WriteLine("2. Realizar Aporte Simulado");
-        Console.WriteLine("3. Comprar / Vender Ativos");
-        Console.WriteLine("4. Simular Variação de Mercado (Oscilar Preços)");
-        Console.WriteLine("5. Exibir Gráfico de Salário e Patrimônio");
-        Console.WriteLine("6. Simular Variação de Mercado (Oscilar Preços)");
-        Console.WriteLine("0. Sair");
-        Console.WriteLine("==================================================");
+        bool executar = true;
 
-        Console.Write("Escolha uma opção: ");
-
-        string opcao = Console.ReadLine() ?? "";
-
-        switch (opcao)
+        while (executar)
         {
-            case "1":
-                // Menu/Ação de Orçamento
-                MenuOrcamentos();
-                break;
-            case "2":
-                // Menu/Ação de Aportes
-                MenuAporteSimulado();
-                PressionarParaContinuar();
-                break;
-            case "3":
-                // Menu/Ação de Negociação
-                MenuNegociacaoAtivos();
-                break;
+            Console.Clear();
+            Console.WriteLine("==================================================");
+            Console.WriteLine($"   PAINEL FINANCEIRO PORTFY - {_usuario.Nome.ToUpper()}");
+            Console.WriteLine("==================================================");
+            Console.WriteLine($"Salário Mensal:     R$ {_usuario.SalarioMensal:F2}");
+            Console.WriteLine($"Saldo em Carteira:  R$ {_carteira.SaldoDisponivel:F2}");
+            Console.WriteLine($"Patrimônio Total:   R$ {_carteira.CalcularPatrimonioTotal():F2}");
+            Console.WriteLine("==================================================");
+            Console.WriteLine("1. Gerenciar Salário / Orçamento");
+            Console.WriteLine("2. Realizar Aporte Simulado");
+            Console.WriteLine("3. Comprar / Vender Ativos");
+            Console.WriteLine("4. Simular Variação de Mercado (Oscilar Preços)");
+            Console.WriteLine("5. Exibir Gráfico de Salário e Patrimônio");
+            Console.WriteLine("6. Simular Variação de Mercado (Oscilar Preços)");
+            Console.WriteLine("0. Sair");
+            Console.WriteLine("==================================================");
 
-            case "4":
-                SimularOscilacaoMercado();
-                break;
+            Console.Write("Escolha uma opção: ");
 
-            case "5":
-                GerarGraficoSalario();
-                PressionarParaContinuar();
-                break;
+            string opcao = Console.ReadLine() ?? "";
 
-            case "6":
-                GerarGraficoPatrimonio();
-                PressionarParaContinuar();
-                break;
+            switch (opcao)
+            {
+                case "1":
+                    // Menu/Ação de Orçamento
+                    MenuOrcamentos();
+                    break;
+                case "2":
+                    // Menu/Ação de Aportes
+                    MenuAporteSimulado();
+                    PressionarParaContinuar();
+                    break;
+                case "3":
+                    // Menu/Ação de Negociação
+                    MenuNegociacaoAtivos();
+                    break;
 
-            case "0":
-                executar = false;
-                Console.WriteLine("\nSaindo do Portfy... Até logo!");
-                break;
-            
-            default:
-                Console.WriteLine("\nOpção inválida! Tente novamente.");
-                PressionarParaContinuar();
-                break;
+                case "4":
+                    SimularOscilacaoMercado();
+                    break;
+
+                case "5":
+                    GerarGraficoSalario();
+                    PressionarParaContinuar();
+                    break;
+
+                case "6":
+                    GerarGraficoPatrimonio();
+                    PressionarParaContinuar();
+                    break;
+
+                case "0":
+                    executar = false;
+                    Console.WriteLine("\nSaindo do Portfy... Até logo!");
+                    break;
+                
+                default:
+                    Console.WriteLine("\nOpção inválida! Tente novamente.");
+                    PressionarParaContinuar();
+                    break;
+            }
         }
     }
-}
 
     private void MenuOrcamentos()
     {
@@ -302,7 +302,7 @@ public void IniciarMenuPrincipal()
         PressionarParaContinuar();
     }
 
-private void MenuAporteSimulado()
+    private void MenuAporteSimulado()
     {
         Console.Clear();
 
@@ -388,7 +388,7 @@ private void MenuAporteSimulado()
         PressionarParaContinuar();
     }
 
- private void ComprarAtivoFluxo()
+    private void ComprarAtivoFluxo()
     {
         Console.WriteLine(
             "\n--- Catálogo de Ativos ---");
@@ -452,6 +452,81 @@ private void MenuAporteSimulado()
         }
     }
 
+    private void VenderAtivoFluxo()
+    {
+        var posicoes = _carteira.Posicoes.ToList();
+
+        if (posicoes.Count == 0)
+        {
+            Console.WriteLine(
+                "\nVocê não tem ativos em custódia para vender.");
+
+            return;
+        }
+
+        Console.WriteLine(
+            "\n--- Suas Posições ---");
+
+        for (int i = 0; i < posicoes.Count; i++)
+        {
+            var pos = posicoes[i];
+
+            Console.WriteLine(
+                $"{i + 1}. [{pos.Ativo.Ticker}] " +
+                $"Qtd: {pos.Quantidade} | " +
+                $"Preço Médio: R$ {pos.PrecoMedio:F2} | " +
+                $"Cotação: R$ {pos.Ativo.PrecoAtual:F2}");
+        }
+
+        Console.Write(
+            "\nSelecione o número da posição a vender: ");
+
+        if (int.TryParse(
+                Console.ReadLine(),
+                out int idx)
+            && idx > 0
+            && idx <= posicoes.Count)
+        {
+            var selecionada = posicoes[idx - 1];
+
+            Console.Write(
+                $"Quantidade a vender " +
+                $"(Máx: {selecionada.Quantidade}): ");
+
+            if (int.TryParse(
+                    Console.ReadLine(),
+                    out int qtd)
+                && qtd > 0)
+            {
+                try
+                {
+                    _carteira.VenderAtivo(
+                        selecionada.Ativo,
+                        qtd);
+
+                    Console.WriteLine(
+                        $"\nVenda efetuada! " +
+                        $"{qtd}x {selecionada.Ativo.Ticker} " +
+                        "negociados com sucesso.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(
+                        $"\nFalha na venda: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine(
+                    "\nQuantidade inválida.");
+            }
+        }
+        else
+        {
+            Console.WriteLine(
+                "\nPosição inválida.");
+        }
+    }
 private void PressionarParaContinuar()
 {
     Console.WriteLine("\nPressione qualquer tecla para voltar ao menu...");
