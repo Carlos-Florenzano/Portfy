@@ -48,9 +48,12 @@ public void IniciarMenuPrincipal()
         Console.WriteLine("1. Gerenciar Salário / Orçamento");
         Console.WriteLine("2. Realizar Aporte Simulado");
         Console.WriteLine("3. Comprar / Vender Ativos");
-        Console.WriteLine("4. Exibir Gráfico de Salário e Patrimônio");
+        Console.WriteLine("4. Simular Variação de Mercado (Oscilar Preços)");
+        Console.WriteLine("5. Exibir Gráfico de Salário e Patrimônio");
+        Console.WriteLine("6. Simular Variação de Mercado (Oscilar Preços)");
         Console.WriteLine("0. Sair");
         Console.WriteLine("==================================================");
+
         Console.Write("Escolha uma opção: ");
 
         string opcao = Console.ReadLine() ?? "";
@@ -59,27 +62,37 @@ public void IniciarMenuPrincipal()
         {
             case "1":
                 // Menu/Ação de Orçamento
-                Console.WriteLine("\n[Em breve: Gestão de Salário/Orçamento]");
-                PressionarParaContinuar();
+                MenuOrcamentos();
                 break;
             case "2":
                 // Menu/Ação de Aportes
-                Console.WriteLine("\n[Em breve: Aporte Simulado]");
+                MenuAporteSimulado();
                 PressionarParaContinuar();
                 break;
             case "3":
                 // Menu/Ação de Negociação
-                Console.WriteLine("\n[Em breve: Compra e Venda de Ativos]");
+                MenuNegociacaoAtivos();
+                break;
+
+            case "4":
+                SimularOscilacaoMercado();
+                break;
+
+            case "5":
+                GerarGraficoSalario();
                 PressionarParaContinuar();
                 break;
-            case "4":
+
+            case "6":
                 GerarGraficoPatrimonio();
                 PressionarParaContinuar();
                 break;
+
             case "0":
                 executar = false;
                 Console.WriteLine("\nSaindo do Portfy... Até logo!");
                 break;
+            
             default:
                 Console.WriteLine("\nOpção inválida! Tente novamente.");
                 PressionarParaContinuar();
