@@ -590,6 +590,8 @@ public class Dashboard
 
         PressionarParaContinuar();
     }
+
+
 private void PressionarParaContinuar()
 {
     Console.WriteLine("\nPressione qualquer tecla para voltar ao menu...");
@@ -599,13 +601,92 @@ private void PressionarParaContinuar()
     // Métodos para exibição gráfica descritos na sua arquitetura
     public void GerarGraficoSalario()
     {
-        
-        // Implementação dos relatórios visuais
-    }
+        Console.Clear();
 
+        Console.WriteLine(
+            "=== GRÁFICO: DISTRIBUIÇÃO DO SALÁRIO ===");
+
+        Console.WriteLine(
+            $"Salário Base: R$ {_usuario.SalarioMensal:F2}\n");
+
+        if (_orcamentos.Count == 0)
+        {
+            Console.WriteLine(
+                "Nenhum orçamento configurado para projeção gráfica.");
+
+            return;
+        }
+
+        foreach (var item in _orcamentos)
+        {
+            decimal proporcao =
+                item.LimiteDefinido > 0
+                    ? item.ValorGastoAtual /
+                      item.LimiteDefinido
+                    : 0;
+
+            int blocos =
+                (int)Math.Min(
+                    proporcao * 25,
+                    25);
+
+            string barra =
+                new string('█', blocos);
+
+            Console.WriteLine(
+                $"{item.NomeCategoria.PadRight(15)} " +
+                $"[{barra.PadRight(25, '-')}] " +
+                $"{(proporcao * 100):F0}% gasto");
+        }
+    }
     public void GerarGraficoPatrimonio()
     {
-        
         // Implementação dos relatórios visuais
+        Console.Clear();
+
+        Console.WriteLine(
+            "=== GRÁFICO: COMPOSIÇÃO DO PATRIMÔNIO ===");
+
+        decimal saldo =
+            _carteira.SaldoDisponivel;
+
+        decimal patrimonio =
+            _carteira.CalcularPatrimonioTotal();
+
+        decimal alocado =
+            Math.Max(
+                0,
+                patrimonio - saldo);
+
+        decimal percSaldo =
+            patrimonio > 0
+                ? (saldo / patrimonio) * 100
+                : 0;
+
+        decimal percAlocado =
+            patrimonio > 0
+                ? (alocado / patrimonio) * 100
+                : 0;
+
+        int blocosSaldo =
+            (int)(percSaldo * 0.25m);
+
+        int blocosAlocado =
+            (int)(percAlocado * 0.25m);
+
+        Console.WriteLine(
+            $"Patrimônio Total: R$ {patrimonio:F2}\n");
+
+        Console.WriteLine(
+            $"Saldo Líquido:  " +
+            $"[{new string('█', blocosSaldo).PadRight(25, '-')}] " +
+            $"{percSaldo:F1}% " +
+            $"(R$ {saldo:F2})");
+
+        Console.WriteLine(
+            $"Investimentos:  " +
+            $"[{new string('█', blocosAlocado).PadRight(25, '-')}] " +
+            $"{percAlocado:F1}% " +
+            $"(R$ {alocado:F2})");
     }
 }
