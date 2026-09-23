@@ -302,6 +302,92 @@ public void IniciarMenuPrincipal()
         PressionarParaContinuar();
     }
 
+private void MenuAporteSimulado()
+    {
+        Console.Clear();
+
+        Console.WriteLine("=== REALIZAR APORTE SIMULADO ===");
+
+        Console.Write(
+            "Informe o valor a depositar na carteira: R$ ");
+
+        if (decimal.TryParse(
+                Console.ReadLine(),
+                out decimal valor)
+            && valor > 0)
+        {
+            try
+            {
+                // AporteSimulado vem do namespace SimuladorFinanceiro.
+                var aporte = new AporteSimulado(
+                    valor,
+                    DateTime.Now);
+
+                _carteira.AdicionarAporte(aporte);
+
+                Console.WriteLine(
+                    $"\nAporte de R$ {valor:F2} " +
+                    "creditado com sucesso!");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"\nErro ao adicionar aporte: {ex.Message}");
+            }
+        }
+        else
+        {
+            Console.WriteLine(
+                "\nValor inválido.");
+        }
+
+        PressionarParaContinuar();
+    }
+
+    private void MenuNegociacaoAtivos()
+    {
+        Console.Clear();
+
+        Console.WriteLine("=== NEGOCIAÇÃO DE ATIVOS ===");
+
+        Console.WriteLine(
+            $"Saldo Disponível: R$ {_carteira.SaldoDisponivel:F2}\n");
+
+        Console.WriteLine("1. Comprar Ativos");
+        Console.WriteLine("2. Vender Ativos");
+        Console.WriteLine("3. Ver Posições Atuais");
+        Console.WriteLine("0. Voltar");
+
+        Console.Write("Opção: ");
+
+        string op = Console.ReadLine() ?? "";
+
+        switch (op)
+        {
+            case "1":
+                ComprarAtivoFluxo();
+                break;
+
+            case "2":
+                VenderAtivoFluxo();
+                break;
+
+            case "3":
+                ListarPosicoes();
+                break;
+
+            case "0":
+                return;
+
+            default:
+                Console.WriteLine(
+                    "\nOpção inválida.");
+                break;
+        }
+
+        PressionarParaContinuar();
+    }
+
 
 private void PressionarParaContinuar()
 {
