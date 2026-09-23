@@ -592,11 +592,11 @@ public class Dashboard
     }
 
 
-private void PressionarParaContinuar()
-{
-    Console.WriteLine("\nPressione qualquer tecla para voltar ao menu...");
-    Console.ReadKey();
-}
+    private void PressionarParaContinuar()
+    {
+        Console.WriteLine("\nPressione qualquer tecla para voltar ao menu...");
+        Console.ReadKey();
+    }
 
     // Métodos para exibição gráfica descritos na sua arquitetura
     public void GerarGraficoSalario()
