@@ -101,6 +101,208 @@ public void IniciarMenuPrincipal()
     }
 }
 
+    private void MenuOrcamentos()
+    {
+        Console.Clear();
+
+        Console.WriteLine("=== GERENCIAR SALÁRIO E ORÇAMENTOS ===");
+        Console.WriteLine("1. Criar Nova Categoria de Gasto");
+        Console.WriteLine("2. Registrar Despesa em Categoria");
+        Console.WriteLine("3. Listar Orçamentos e Saldo Disponível");
+        Console.WriteLine("4. Atualizar Salário Mensal");
+        Console.WriteLine("0. Voltar");
+
+        Console.Write("Escolha uma opção: ");
+
+        string op = Console.ReadLine() ?? "";
+
+        switch (op)
+        {
+            case "1":
+
+                Console.Write(
+                    "\nNome da Categoria (Ex: Moradia, Lazer): ");
+
+                string nome = Console.ReadLine() ?? "";
+
+                Console.Write("Limite Máximo (R$): ");
+
+                if (decimal.TryParse(
+                        Console.ReadLine(),
+                        out decimal limite)
+                    && limite > 0)
+                {
+                    decimal percentual =
+                        _usuario.SalarioMensal > 0
+                            ? (limite / _usuario.SalarioMensal) * 100
+                            : 0;
+
+                    try
+                    {
+                        _orcamentos.Add(
+                            new Orcamento(
+                                nome,
+                                limite,
+                                percentual));
+
+                        Console.WriteLine(
+                            "\nCategoria criada com sucesso!");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(
+                            $"\nErro: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine(
+                        "\nValor de limite inválido.");
+                }
+
+                break;
+
+            case "2":
+
+                if (_orcamentos.Count == 0)
+                {
+                    Console.WriteLine(
+                        "\nNenhuma categoria cadastrada.");
+                    break;
+                }
+
+                Console.WriteLine(
+                    "\nSelecione a categoria:");
+
+                for (int i = 0; i < _orcamentos.Count; i++)
+                {
+                    Console.WriteLine(
+                        $"{i + 1}. {_orcamentos[i].NomeCategoria} " +
+                        $"(Gasto Atual: R$ {_orcamentos[i].ValorGastoAtual:F2})");
+                }
+
+                Console.Write("Número: ");
+
+                if (int.TryParse(
+                        Console.ReadLine(),
+                        out int idx)
+                    && idx > 0
+                    && idx <= _orcamentos.Count)
+                {
+                    Console.Write(
+                        "Valor do gasto a adicionar: R$ ");
+
+                    if (decimal.TryParse(
+                            Console.ReadLine(),
+                            out decimal gasto)
+                        && gasto > 0)
+                    {
+                        var categoria = _orcamentos[idx - 1];
+
+                        categoria.AdicionarDespesa(gasto);
+
+                        if (categoria.ValidarEstouroOrcamento())
+                        {
+                            Console.WriteLine(
+                                $"\n[ALERTA] Limite ultrapassado em " +
+                                $"R$ {Math.Abs(categoria.ObterSaldoRestante()):F2}!");
+                        }
+                        else
+                        {
+                            Console.WriteLine(
+                                $"\nDespesa computada. " +
+                                $"Saldo restante: R$ {categoria.ObterSaldoRestante():F2}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine(
+                            "\nValor de gasto inválido.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine(
+                        "\nCategoria inválida.");
+                }
+
+                break;
+
+            case "3":
+
+                Console.WriteLine(
+                    "\n--- Categorias Cadastradas ---");
+
+                decimal totalGasto = 0;
+
+                foreach (var orc in _orcamentos)
+                {
+                    totalGasto += orc.ValorGastoAtual;
+
+                    string status =
+                        orc.ValidarEstouroOrcamento()
+                            ? "[ESTOURADO]"
+                            : "[REGULAR]";
+
+                    Console.WriteLine(
+                        $"{orc.NomeCategoria.PadRight(15)} | " +
+                        $"Gasto: R$ {orc.ValorGastoAtual:F2} / " +
+                        $"Limite: R$ {orc.LimiteDefinido:F2} | " +
+                        $"{status}");
+                }
+
+                decimal saldoRestanteSalario =
+                    _usuario.CalcularRendaDisponivel(totalGasto);
+
+                Console.WriteLine(
+                    $"\nRenda Restante do Salário: " +
+                    $"R$ {saldoRestanteSalario:F2}");
+
+                break;
+
+            case "4":
+
+                Console.Write(
+                    "\nDigite o novo salário mensal: R$ ");
+
+                if (decimal.TryParse(
+                        Console.ReadLine(),
+                        out decimal novoSalario))
+                {
+                    try
+                    {
+                        _usuario.AtualizarSalario(novoSalario);
+
+                        Console.WriteLine(
+                            "\nSalário atualizado com sucesso!");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(
+                            $"\nErro: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine(
+                        "\nValor de salário inválido.");
+                }
+
+                break;
+
+            case "0":
+                return;
+
+            default:
+                Console.WriteLine(
+                    "\nOpção inválida.");
+                break;
+        }
+
+        PressionarParaContinuar();
+    }
+
+
 private void PressionarParaContinuar()
 {
     Console.WriteLine("\nPressione qualquer tecla para voltar ao menu...");
