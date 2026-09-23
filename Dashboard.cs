@@ -10,12 +10,25 @@ public class Dashboard
 {
     private readonly Usuario _usuario;
     private readonly CarteiraSimulada _carteira;
+    private readonly List<Orcamento> _orcamentos = new();
+    private readonly List<Ativo> _mercadoAtivos = new();
+
 
     // Construtor com Injeção de Dependências (Resolve os erros das imagens 1 e 2)
     public Dashboard(Usuario usuario, CarteiraSimulada carteira)
     {
         _usuario = usuario ?? throw new ArgumentNullException(nameof(usuario));
         _carteira = carteira ?? throw new ArgumentNullException(nameof(carteira));
+
+        InicializarMercadoSimulado();
+    }
+    private void InicializarMercadoSimulado()
+    {
+        _mercadoAtivos.Add(new Ativo("PETR4", "Petrobras PN", TipoAtivo.Acao, 38.50m));
+        _mercadoAtivos.Add(new Ativo("VALE3", "Vale ON", TipoAtivo.Acao, 62.10m));
+        _mercadoAtivos.Add(new Ativo("HGLG11", "CSHG Logística", TipoAtivo.Fii, 164.20m));
+        _mercadoAtivos.Add(new Ativo("TD2035", "Tesouro IPCA+ 2035", TipoAtivo.RendaFixa, 1000.00m));
+        _mercadoAtivos.Add(new Ativo("BTC", "Bitcoin", TipoAtivo.Cripto, 350000.00m));
     }
 
 public void IniciarMenuPrincipal()
