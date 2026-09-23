@@ -12,6 +12,7 @@ public class Dashboard
     private readonly CarteiraSimulada _carteira;
     private readonly List<Orcamento> _orcamentos = new();
     private readonly List<Ativo> _mercadoAtivos = new();
+    private int _proximoAporteId = 1;
 
 
     // Construtor com Injeção de Dependências (Resolve os erros das imagens 1 e 2)
@@ -320,11 +321,13 @@ public class Dashboard
             {
                 // AporteSimulado vem do namespace SimuladorFinanceiro.
                 var aporte = new AporteSimulado(
+                    _proximoAporteId++,
                     valor,
-                    DateTime.Now);
+                    _usuario.Id,
+                    DateTime.Now
+                    );
 
-                _carteira.AdicionarAporte(aporte);
-
+_carteira.AdicionarAporte(aporte);  
                 Console.WriteLine(
                     $"\nAporte de R$ {valor:F2} " +
                     "creditado com sucesso!");
