@@ -388,6 +388,69 @@ private void MenuAporteSimulado()
         PressionarParaContinuar();
     }
 
+ private void ComprarAtivoFluxo()
+    {
+        Console.WriteLine(
+            "\n--- Catálogo de Ativos ---");
+
+        for (int i = 0; i < _mercadoAtivos.Count; i++)
+        {
+            var ativo = _mercadoAtivos[i];
+
+            Console.WriteLine(
+                $"{i + 1}. [{ativo.Ticker}] " +
+                $"{ativo.Nome} ({ativo.Tipo}) - " +
+                $"Preço: R$ {ativo.PrecoAtual:F2}");
+        }
+
+        Console.Write(
+            "\nSelecione o número do ativo: ");
+
+        if (int.TryParse(
+                Console.ReadLine(),
+                out int idx)
+            && idx > 0
+            && idx <= _mercadoAtivos.Count)
+        {
+            var selecionado = _mercadoAtivos[idx - 1];
+
+            Console.Write(
+                $"Quantidade de {selecionado.Ticker} a comprar: ");
+
+            if (int.TryParse(
+                    Console.ReadLine(),
+                    out int qtd)
+                && qtd > 0)
+            {
+                try
+                {
+                    _carteira.ComprarAtivo(
+                        selecionado,
+                        qtd);
+
+                    Console.WriteLine(
+                        $"\nCompra efetuada! " +
+                        $"{qtd}x {selecionado.Ticker} " +
+                        "adicionados à sua carteira.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(
+                        $"\nFalha na compra: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine(
+                    "\nQuantidade inválida.");
+            }
+        }
+        else
+        {
+            Console.WriteLine(
+                "\nAtivo inválido.");
+        }
+    }
 
 private void PressionarParaContinuar()
 {
