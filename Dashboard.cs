@@ -52,6 +52,7 @@ public class Dashboard
             Console.WriteLine("4. Simular Variação de Mercado (Oscilar Preços)");
             Console.WriteLine("5. Exibir Gráfico de Salário e Patrimônio");
             Console.WriteLine("6. Exibir Gráfico de Patrimônio");
+            Console.WriteLine("7. Exibir Relatório Financeiro");
             Console.WriteLine("0. Sair");
             Console.WriteLine("==================================================");
 
@@ -87,6 +88,15 @@ public class Dashboard
                 case "6":
                     GerarGraficoPatrimonio();
                     PressionarParaContinuar();
+                    break;
+
+                case "7":
+                    var relatorio = new RelatorioFinanceiro(  //Apenas para mostrar o Relatório
+                        _usuario,
+                        _carteira,
+                        _orcamentos);
+                    relatorio.ExibirRelatorio();
+                    PressionarParaContinuar();   
                     break;
 
                 case "0":
