@@ -527,6 +527,69 @@ public class Dashboard
                 "\nPosição inválida.");
         }
     }
+
+    private void ListarPosicoes()
+    {
+        Console.WriteLine(
+            "\n--- Posições em Carteira ---");
+
+        if (_carteira.Posicoes.Count == 0)
+        {
+            Console.WriteLine(
+                "Nenhum ativo custodiado no momento.");
+
+            return;
+        }
+
+        foreach (var posicao in _carteira.Posicoes)
+        {
+            decimal valorTotalPosicao =
+                posicao.Quantidade *
+                posicao.Ativo.PrecoAtual;
+
+            Console.WriteLine(
+                $"[{posicao.Ativo.Ticker.PadRight(6)}] " +
+                $"Qtd: {posicao.Quantidade.ToString().PadRight(4)} | " +
+                $"P.Médio: R$ {posicao.PrecoMedio:F2} | " +
+                $"Atual: R$ {posicao.Ativo.PrecoAtual:F2} | " +
+                $"Subtotal: R$ {valorTotalPosicao:F2}");
+        }
+    }
+
+    private void SimularOscilacaoMercado()
+    {
+        Console.Clear();
+
+        Console.WriteLine(
+            "=== SIMULAÇÃO DE OSCILAÇÃO DE MERCADO ===");
+
+        Console.WriteLine(
+            "Variando os preços dos ativos entre -5% e +5%...\n");
+
+        foreach (var ativo in _mercadoAtivos)
+        {
+            decimal precoAnterior =
+                ativo.PrecoAtual;
+
+            ativo.SimularVariacaoPreco();
+
+            string variacaoFormatada =
+                ativo.RentabilidadeSimulada >= 0
+                    ? $"+{ativo.RentabilidadeSimulada:F2}%"
+                    : $"{ativo.RentabilidadeSimulada:F2}%";
+
+            Console.WriteLine(
+                $"[{ativo.Ticker.PadRight(6)}] " +
+                $"R$ {precoAnterior:F2} -> " +
+                $"R$ {ativo.PrecoAtual:F2} " +
+                $"({variacaoFormatada})");
+        }
+
+        Console.WriteLine(
+            "\nPreços de mercado atualizados!");
+
+        PressionarParaContinuar();
+    }
 private void PressionarParaContinuar()
 {
     Console.WriteLine("\nPressione qualquer tecla para voltar ao menu...");
