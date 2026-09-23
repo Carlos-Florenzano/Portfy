@@ -31,75 +31,75 @@ public class Dashboard
         _mercadoAtivos.Add(new Ativo("BTC", "Bitcoin", TipoAtivo.Cripto, 350000.00m));
     }
 
-public void IniciarMenuPrincipal()
-{
-    bool executar = true;
-
-    while (executar)
+    public void IniciarMenuPrincipal()
     {
-        Console.Clear();
-        Console.WriteLine("==================================================");
-        Console.WriteLine($"   PAINEL FINANCEIRO PORTFY - {_usuario.Nome.ToUpper()}");
-        Console.WriteLine("==================================================");
-        Console.WriteLine($"Salário Mensal:     R$ {_usuario.SalarioMensal:F2}");
-        Console.WriteLine($"Saldo em Carteira:  R$ {_carteira.SaldoDisponivel:F2}");
-        Console.WriteLine($"Patrimônio Total:   R$ {_carteira.CalcularPatrimonioTotal():F2}");
-        Console.WriteLine("==================================================");
-        Console.WriteLine("1. Gerenciar Salário / Orçamento");
-        Console.WriteLine("2. Realizar Aporte Simulado");
-        Console.WriteLine("3. Comprar / Vender Ativos");
-        Console.WriteLine("4. Simular Variação de Mercado (Oscilar Preços)");
-        Console.WriteLine("5. Exibir Gráfico de Salário e Patrimônio");
-        Console.WriteLine("6. Simular Variação de Mercado (Oscilar Preços)");
-        Console.WriteLine("0. Sair");
-        Console.WriteLine("==================================================");
+        bool executar = true;
 
-        Console.Write("Escolha uma opção: ");
-
-        string opcao = Console.ReadLine() ?? "";
-
-        switch (opcao)
+        while (executar)
         {
-            case "1":
-                // Menu/Ação de Orçamento
-                MenuOrcamentos();
-                break;
-            case "2":
-                // Menu/Ação de Aportes
-                MenuAporteSimulado();
-                PressionarParaContinuar();
-                break;
-            case "3":
-                // Menu/Ação de Negociação
-                MenuNegociacaoAtivos();
-                break;
+            Console.Clear();
+            Console.WriteLine("==================================================");
+            Console.WriteLine($"   PAINEL FINANCEIRO PORTFY - {_usuario.Nome.ToUpper()}");
+            Console.WriteLine("==================================================");
+            Console.WriteLine($"Salário Mensal:     R$ {_usuario.SalarioMensal:F2}");
+            Console.WriteLine($"Saldo em Carteira:  R$ {_carteira.SaldoDisponivel:F2}");
+            Console.WriteLine($"Patrimônio Total:   R$ {_carteira.CalcularPatrimonioTotal():F2}");
+            Console.WriteLine("==================================================");
+            Console.WriteLine("1. Gerenciar Salário / Orçamento");
+            Console.WriteLine("2. Realizar Aporte Simulado");
+            Console.WriteLine("3. Comprar / Vender Ativos");
+            Console.WriteLine("4. Simular Variação de Mercado (Oscilar Preços)");
+            Console.WriteLine("5. Exibir Gráfico de Salário e Patrimônio");
+            Console.WriteLine("6. Simular Variação de Mercado (Oscilar Preços)");
+            Console.WriteLine("0. Sair");
+            Console.WriteLine("==================================================");
 
-            case "4":
-                SimularOscilacaoMercado();
-                break;
+            Console.Write("Escolha uma opção: ");
 
-            case "5":
-                GerarGraficoSalario();
-                PressionarParaContinuar();
-                break;
+            string opcao = Console.ReadLine() ?? "";
 
-            case "6":
-                GerarGraficoPatrimonio();
-                PressionarParaContinuar();
-                break;
+            switch (opcao)
+            {
+                case "1":
+                    // Menu/Ação de Orçamento
+                    MenuOrcamentos();
+                    break;
+                case "2":
+                    // Menu/Ação de Aportes
+                    MenuAporteSimulado();
+                    PressionarParaContinuar();
+                    break;
+                case "3":
+                    // Menu/Ação de Negociação
+                    MenuNegociacaoAtivos();
+                    break;
 
-            case "0":
-                executar = false;
-                Console.WriteLine("\nSaindo do Portfy... Até logo!");
-                break;
-            
-            default:
-                Console.WriteLine("\nOpção inválida! Tente novamente.");
-                PressionarParaContinuar();
-                break;
+                case "4":
+                    SimularOscilacaoMercado();
+                    break;
+
+                case "5":
+                    GerarGraficoSalario();
+                    PressionarParaContinuar();
+                    break;
+
+                case "6":
+                    GerarGraficoPatrimonio();
+                    PressionarParaContinuar();
+                    break;
+
+                case "0":
+                    executar = false;
+                    Console.WriteLine("\nSaindo do Portfy... Até logo!");
+                    break;
+                
+                default:
+                    Console.WriteLine("\nOpção inválida! Tente novamente.");
+                    PressionarParaContinuar();
+                    break;
+            }
         }
     }
-}
 
     private void MenuOrcamentos()
     {
@@ -302,23 +302,391 @@ public void IniciarMenuPrincipal()
         PressionarParaContinuar();
     }
 
+    private void MenuAporteSimulado()
+    {
+        Console.Clear();
 
-private void PressionarParaContinuar()
-{
-    Console.WriteLine("\nPressione qualquer tecla para voltar ao menu...");
-    Console.ReadKey();
-}
+        Console.WriteLine("=== REALIZAR APORTE SIMULADO ===");
+
+        Console.Write(
+            "Informe o valor a depositar na carteira: R$ ");
+
+        if (decimal.TryParse(
+                Console.ReadLine(),
+                out decimal valor)
+            && valor > 0)
+        {
+            try
+            {
+                // AporteSimulado vem do namespace SimuladorFinanceiro.
+                var aporte = new AporteSimulado(
+                    valor,
+                    DateTime.Now);
+
+                _carteira.AdicionarAporte(aporte);
+
+                Console.WriteLine(
+                    $"\nAporte de R$ {valor:F2} " +
+                    "creditado com sucesso!");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"\nErro ao adicionar aporte: {ex.Message}");
+            }
+        }
+        else
+        {
+            Console.WriteLine(
+                "\nValor inválido.");
+        }
+
+        PressionarParaContinuar();
+    }
+
+    private void MenuNegociacaoAtivos()
+    {
+        Console.Clear();
+
+        Console.WriteLine("=== NEGOCIAÇÃO DE ATIVOS ===");
+
+        Console.WriteLine(
+            $"Saldo Disponível: R$ {_carteira.SaldoDisponivel:F2}\n");
+
+        Console.WriteLine("1. Comprar Ativos");
+        Console.WriteLine("2. Vender Ativos");
+        Console.WriteLine("3. Ver Posições Atuais");
+        Console.WriteLine("0. Voltar");
+
+        Console.Write("Opção: ");
+
+        string op = Console.ReadLine() ?? "";
+
+        switch (op)
+        {
+            case "1":
+                ComprarAtivoFluxo();
+                break;
+
+            case "2":
+                VenderAtivoFluxo();
+                break;
+
+            case "3":
+                ListarPosicoes();
+                break;
+
+            case "0":
+                return;
+
+            default:
+                Console.WriteLine(
+                    "\nOpção inválida.");
+                break;
+        }
+
+        PressionarParaContinuar();
+    }
+
+    private void ComprarAtivoFluxo()
+    {
+        Console.WriteLine(
+            "\n--- Catálogo de Ativos ---");
+
+        for (int i = 0; i < _mercadoAtivos.Count; i++)
+        {
+            var ativo = _mercadoAtivos[i];
+
+            Console.WriteLine(
+                $"{i + 1}. [{ativo.Ticker}] " +
+                $"{ativo.Nome} ({ativo.Tipo}) - " +
+                $"Preço: R$ {ativo.PrecoAtual:F2}");
+        }
+
+        Console.Write(
+            "\nSelecione o número do ativo: ");
+
+        if (int.TryParse(
+                Console.ReadLine(),
+                out int idx)
+            && idx > 0
+            && idx <= _mercadoAtivos.Count)
+        {
+            var selecionado = _mercadoAtivos[idx - 1];
+
+            Console.Write(
+                $"Quantidade de {selecionado.Ticker} a comprar: ");
+
+            if (int.TryParse(
+                    Console.ReadLine(),
+                    out int qtd)
+                && qtd > 0)
+            {
+                try
+                {
+                    _carteira.ComprarAtivo(
+                        selecionado,
+                        qtd);
+
+                    Console.WriteLine(
+                        $"\nCompra efetuada! " +
+                        $"{qtd}x {selecionado.Ticker} " +
+                        "adicionados à sua carteira.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(
+                        $"\nFalha na compra: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine(
+                    "\nQuantidade inválida.");
+            }
+        }
+        else
+        {
+            Console.WriteLine(
+                "\nAtivo inválido.");
+        }
+    }
+
+    private void VenderAtivoFluxo()
+    {
+        var posicoes = _carteira.Posicoes.ToList();
+
+        if (posicoes.Count == 0)
+        {
+            Console.WriteLine(
+                "\nVocê não tem ativos em custódia para vender.");
+
+            return;
+        }
+
+        Console.WriteLine(
+            "\n--- Suas Posições ---");
+
+        for (int i = 0; i < posicoes.Count; i++)
+        {
+            var pos = posicoes[i];
+
+            Console.WriteLine(
+                $"{i + 1}. [{pos.Ativo.Ticker}] " +
+                $"Qtd: {pos.Quantidade} | " +
+                $"Preço Médio: R$ {pos.PrecoMedio:F2} | " +
+                $"Cotação: R$ {pos.Ativo.PrecoAtual:F2}");
+        }
+
+        Console.Write(
+            "\nSelecione o número da posição a vender: ");
+
+        if (int.TryParse(
+                Console.ReadLine(),
+                out int idx)
+            && idx > 0
+            && idx <= posicoes.Count)
+        {
+            var selecionada = posicoes[idx - 1];
+
+            Console.Write(
+                $"Quantidade a vender " +
+                $"(Máx: {selecionada.Quantidade}): ");
+
+            if (int.TryParse(
+                    Console.ReadLine(),
+                    out int qtd)
+                && qtd > 0)
+            {
+                try
+                {
+                    _carteira.VenderAtivo(
+                        selecionada.Ativo,
+                        qtd);
+
+                    Console.WriteLine(
+                        $"\nVenda efetuada! " +
+                        $"{qtd}x {selecionada.Ativo.Ticker} " +
+                        "negociados com sucesso.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(
+                        $"\nFalha na venda: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine(
+                    "\nQuantidade inválida.");
+            }
+        }
+        else
+        {
+            Console.WriteLine(
+                "\nPosição inválida.");
+        }
+    }
+
+    private void ListarPosicoes()
+    {
+        Console.WriteLine(
+            "\n--- Posições em Carteira ---");
+
+        if (_carteira.Posicoes.Count == 0)
+        {
+            Console.WriteLine(
+                "Nenhum ativo custodiado no momento.");
+
+            return;
+        }
+
+        foreach (var posicao in _carteira.Posicoes)
+        {
+            decimal valorTotalPosicao =
+                posicao.Quantidade *
+                posicao.Ativo.PrecoAtual;
+
+            Console.WriteLine(
+                $"[{posicao.Ativo.Ticker.PadRight(6)}] " +
+                $"Qtd: {posicao.Quantidade.ToString().PadRight(4)} | " +
+                $"P.Médio: R$ {posicao.PrecoMedio:F2} | " +
+                $"Atual: R$ {posicao.Ativo.PrecoAtual:F2} | " +
+                $"Subtotal: R$ {valorTotalPosicao:F2}");
+        }
+    }
+
+    private void SimularOscilacaoMercado()
+    {
+        Console.Clear();
+
+        Console.WriteLine(
+            "=== SIMULAÇÃO DE OSCILAÇÃO DE MERCADO ===");
+
+        Console.WriteLine(
+            "Variando os preços dos ativos entre -5% e +5%...\n");
+
+        foreach (var ativo in _mercadoAtivos)
+        {
+            decimal precoAnterior =
+                ativo.PrecoAtual;
+
+            ativo.SimularVariacaoPreco();
+
+            string variacaoFormatada =
+                ativo.RentabilidadeSimulada >= 0
+                    ? $"+{ativo.RentabilidadeSimulada:F2}%"
+                    : $"{ativo.RentabilidadeSimulada:F2}%";
+
+            Console.WriteLine(
+                $"[{ativo.Ticker.PadRight(6)}] " +
+                $"R$ {precoAnterior:F2} -> " +
+                $"R$ {ativo.PrecoAtual:F2} " +
+                $"({variacaoFormatada})");
+        }
+
+        Console.WriteLine(
+            "\nPreços de mercado atualizados!");
+
+        PressionarParaContinuar();
+    }
+
+
+    private void PressionarParaContinuar()
+    {
+        Console.WriteLine("\nPressione qualquer tecla para voltar ao menu...");
+        Console.ReadKey();
+    }
 
     // Métodos para exibição gráfica descritos na sua arquitetura
     public void GerarGraficoSalario()
     {
-        
-        // Implementação dos relatórios visuais
-    }
+        Console.Clear();
 
+        Console.WriteLine(
+            "=== GRÁFICO: DISTRIBUIÇÃO DO SALÁRIO ===");
+
+        Console.WriteLine(
+            $"Salário Base: R$ {_usuario.SalarioMensal:F2}\n");
+
+        if (_orcamentos.Count == 0)
+        {
+            Console.WriteLine(
+                "Nenhum orçamento configurado para projeção gráfica.");
+
+            return;
+        }
+
+        foreach (var item in _orcamentos)
+        {
+            decimal proporcao =
+                item.LimiteDefinido > 0
+                    ? item.ValorGastoAtual /
+                      item.LimiteDefinido
+                    : 0;
+
+            int blocos =
+                (int)Math.Min(
+                    proporcao * 25,
+                    25);
+
+            string barra =
+                new string('█', blocos);
+
+            Console.WriteLine(
+                $"{item.NomeCategoria.PadRight(15)} " +
+                $"[{barra.PadRight(25, '-')}] " +
+                $"{(proporcao * 100):F0}% gasto");
+        }
+    }
     public void GerarGraficoPatrimonio()
     {
-        
         // Implementação dos relatórios visuais
+        Console.Clear();
+
+        Console.WriteLine(
+            "=== GRÁFICO: COMPOSIÇÃO DO PATRIMÔNIO ===");
+
+        decimal saldo =
+            _carteira.SaldoDisponivel;
+
+        decimal patrimonio =
+            _carteira.CalcularPatrimonioTotal();
+
+        decimal alocado =
+            Math.Max(
+                0,
+                patrimonio - saldo);
+
+        decimal percSaldo =
+            patrimonio > 0
+                ? (saldo / patrimonio) * 100
+                : 0;
+
+        decimal percAlocado =
+            patrimonio > 0
+                ? (alocado / patrimonio) * 100
+                : 0;
+
+        int blocosSaldo =
+            (int)(percSaldo * 0.25m);
+
+        int blocosAlocado =
+            (int)(percAlocado * 0.25m);
+
+        Console.WriteLine(
+            $"Patrimônio Total: R$ {patrimonio:F2}\n");
+
+        Console.WriteLine(
+            $"Saldo Líquido:  " +
+            $"[{new string('█', blocosSaldo).PadRight(25, '-')}] " +
+            $"{percSaldo:F1}% " +
+            $"(R$ {saldo:F2})");
+
+        Console.WriteLine(
+            $"Investimentos:  " +
+            $"[{new string('█', blocosAlocado).PadRight(25, '-')}] " +
+            $"{percAlocado:F1}% " +
+            $"(R$ {alocado:F2})");
     }
 }
