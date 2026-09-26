@@ -1,12 +1,12 @@
-﻿// Observação: o Program.cs é quem vai orquestrar o uso das classes que foram separadas em módulos;
+// Observação: o Program.cs é quem vai orquestrar o uso das classes que foram separadas em módulos;
 // De forma que o programe funcione plenamente como um todo.
 
 using System;
+using System.Globalization;
 using System.Text;
-using AnaliseApresentacao;
-using GestaoSalarioOrcamento;
-using PortfyModuloInvestimentos;
-using SimuladorFinanceiro;
+using Portfy.Apresentacao;
+using Portfy.Dominio.Financas;
+using Portfy.Dominio.Investimentos;
 
 namespace Portfy;
 
@@ -14,6 +14,9 @@ public class Program
 {
     public static void Main(string[] args)
     {
+        CultureInfo culturaPtBr = CultureInfo.GetCultureInfo("pt-BR"); // Define a cultura para pt-BR (Português do Brasil) para formatação de datas, números e moeda.
+        CultureInfo.CurrentCulture = culturaPtBr;
+        CultureInfo.CurrentUICulture = culturaPtBr;
         Console.OutputEncoding = Encoding.UTF8;
         try
         {
