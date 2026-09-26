@@ -1,7 +1,6 @@
 using System;
 
-namespace PortifyModulo1;
-
+namespace Portfy.Models;
 public class Orcamento
 {
     // Nome da categoria de gasto (ex: Alimentação, Transporte, Lazer, Moradia).

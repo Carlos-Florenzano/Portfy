@@ -1,8 +1,5 @@
-using System;
-using GestaoSalarioOrcamento;
-using PortfyModuloInvestimentos;
-using PortifyModulo1;
-using SimuladorFinanceiro;
+using Portfy.Models;
+using Portfy.Services;
 
 namespace AnaliseApresentacao;
 

@@ -1,7 +1,6 @@
 using System;
 
-namespace PortfyModuloInvestimentos;
-
+namespace Portfy.Models;
 /// Categorias de ativos disponíveis para simulação no Portfy.
 public enum TipoAtivo
 {

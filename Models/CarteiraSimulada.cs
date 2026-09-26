@@ -1,11 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using SimuladorFinanceiro;
-using PortfyModuloInvestimentos;
 
-namespace PortfyModuloInvestimentos;
-
+namespace Portfy.Models;
 public class CarteiraSimulada
 {
     // Objeto de sincronização para garantir Thread Safety em ambientes multithread

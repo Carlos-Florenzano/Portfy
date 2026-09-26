@@ -1,7 +1,6 @@
 using System;
 
-namespace GestaoSalarioOrcamento;
-
+namespace Portfy.Models;
 // Responsabilidade da Classe: Gestão da identidade do usuário e entrada de renda.
 public class Usuario
 {
