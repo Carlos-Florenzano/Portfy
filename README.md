@@ -4,6 +4,15 @@ O **Portfy** é um sistema em C# voltado para a gestão de orçamento pessoal e 
 
 ---
 
+## Integrantes do Grupo
+
+- Carlos Florenzano
+- Lucas Gomes
+- Sérgio Lucas Gomes
+- Arthur Salonikio
+- Karina Braga Louzada
+- Miguel Martins
+
 ## Log de Alterações e Arquitetura — MVP (23/09/2026)
 
 ### 1. Justificativa de Engenharia de Software
