@@ -34,7 +34,7 @@ Adotou-se a estratégia de **Refatoração Modular Incremental** antes da integr
   * Remoção de acoplamento com o `Console` em conformidade com o **SRP (Princípio da Responsabilidade Única)**.
 * **`Program.cs` & `Dashboard.cs`**: Estabelecida a estrutura de injeção de dependência no orquestrador e criado o laço contínuo do menu interativo no terminal.
 
-* **Modificações feitas em `Dashboard.cs`
+* **Modificações feitas em `Dashboard.cs`.
   * Melhoria da navegação: ajustado o fluxo dos menus de Salário/Orçamento e Negociação de Ativos para permitir o retorno ao menu anterior sem voltar diretamente ao menu principal.
   * Cancelamento de operações: adicionada a opção 0 para cancelar operações durante a entrada de dados.
   * Correção da leitura de dados: corrigidos os fluxos que realizavam mais de uma leitura (Console.ReadLine()) para a mesma informação, evitando que o usuário precisasse digitar os dados duas vezes.
@@ -42,6 +42,16 @@ Adotou-se a estratégia de **Refatoração Modular Incremental** antes da integr
   * Mensagens de navegação: adicionadas mensagens informando quando uma operação foi cancelada ou quando ocorreu uma entrada inválida.
   * Testes de navegação: realizadas verificações nos menus de orçamento, aporte e negociação de ativos para garantir o retorno correto ao menu anterior após cada operação.
   * Todas feitas na branch Dashboard-e-relatorio
+
+* **NOVA BRANCH CRIADA.
+  * Foi criada uma nova branch denominada de feat/Implementação-da-Segunda-Tela-de-Pedido pelo acaso de a nova interface de pedidos interferir com o que já havia sido criado na branch main.
+  * Na mesma branch foram ciradas as classes `GerenciadorPedidosInvestimento.cs` e `OrdemInvestimento.cs`.
+  * Todos os namespaces começam com `Portfy` e usam segmentos PascalCase que representam a camada e o domínio.
+  * `Portfy.Dominio.Financas` contém `Usuario` e `Orcamento`.
+  * `Portfy.Dominio.Investimentos` contém `AporteSimulado`, `Ativo`, `CarteiraSimulada`, `Posicao` e `TipoAtivo`.
+  * `Portfy.Apresentacao` contém `Dashboard` e `RelatorioFinanceiro`; `Program` permanece na raiz `Portfy`.
+  * Classes, enums, métodos e propriedades usam PascalCase; campos privados usam `_camelCase`.
+  * Cada arquivo de tipo público mantém o nome do tipo principal. Os nomes de domínio permanecem em português.
 
 ---
 
