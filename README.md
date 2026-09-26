@@ -56,6 +56,15 @@ Adotou-se a estratégia de **Refatoração Modular Incremental** antes da integr
   * Testes de navegação: realizadas verificações nos menus de orçamento, aporte e negociação de ativos para garantir o retorno correto ao menu anterior após cada operação.
   * Todas feitas na branch Dashboard-e-relatorio
 
+* **`Orcamento.cs`**:
+  * Adicionada validação para impedir que o limite do orçamento possua mais de duas casas decimais.
+  * Adicionada validação para impedir que uma despesa possua mais de duas casas decimais.
+  * Adicionado o uso de `Trim()` no nome da categoria, evitando espaços desnecessários no início e no final do texto.
+  * Adicionada uma proteção para despesas muito superiores ao limite da categoria. Valores acima de três vezes o limite exigem confirmação explícita.
+  * Adicionado o parâmetro `confirmarValorExcepcional` ao método `AdicionarDespesa()`, permitindo confirmar despesas excepcionais quando necessário.
+  * Criado o método auxiliar `TemNoMaximoDuasCasasDecimais()` para centralizar a validação de valores monetários.
+  * Mantidas as validações existentes para impedir categorias vazias, limites negativos, percentuais negativos e despesas menores ou iguais a zero.
+
 * NOVA BRANCH CRIADA.
   * Foi criada uma nova branch denominada de feat/Implementação-da-Segunda-Tela-de-Pedido pelo acaso de a nova interface de pedidos interferir com o que já havia sido criado na branch main.
   * Na mesma branch foram ciradas as classes `GerenciadorPedidosInvestimento.cs` e `OrdemInvestimento.cs`.
