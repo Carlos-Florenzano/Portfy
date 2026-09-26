@@ -1,20 +1,26 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
-using GestaoSalarioOrcamento;
-using PortfyModuloInvestimentos;
-using PortifyModulo1;
-using SimuladorFinanceiro;
+using Portfy.Dominio.Financas;
+using Portfy.Dominio.Investimentos;
 
-namespace AnaliseApresentacao;
+namespace Portfy.Apresentacao;
 
 public class Dashboard
 {
 private readonly Usuario _usuario;
 private readonly CarteiraSimulada _carteira;
+private readonly GerenciadorPedidosInvestimento _gerenciadorPedidos = new();
 private readonly List<Orcamento> _orcamentos = new();
 private readonly List<Ativo> _mercadoAtivos = new();
 private int _proximoAporteId = 1;
+private static readonly CultureInfo CulturaPtBr = CultureInfo.GetCultureInfo("pt-BR");
+
+private static string FormatarMoeda(decimal valor)
+{
+    return valor.ToString("C2", CulturaPtBr);
+}
 
 public Dashboard(Usuario usuario, CarteiraSimulada carteira)
 {
@@ -27,6 +33,43 @@ public Dashboard(Usuario usuario, CarteiraSimulada carteira)
 private bool FoiCancelado(string valor)
 {
     return valor.Trim() == "0";
+}
+
+private bool ConfirmarOrdem(TipoOrdemInvestimento tipo, Ativo ativo, int quantidade)
+{
+    decimal total = ativo.PrecoAtual * quantidade;
+
+    Console.WriteLine("\n--- RESUMO DO PEDIDO ---");
+    Console.WriteLine($"Operação: {tipo}");
+    Console.WriteLine($"Ativo: {ativo.Ticker} - {ativo.Nome}");
+    Console.WriteLine($"Quantidade: {quantidade}");
+    Console.WriteLine($"Preço unitário: {FormatarMoeda(ativo.PrecoAtual)}");
+    Console.WriteLine($"Valor total: {FormatarMoeda(total)}");
+    Console.Write("Confirmar pedido? (S/N): ");
+
+    bool confirmado = string.Equals(
+        Console.ReadLine()?.Trim(),
+        "S",
+        StringComparison.OrdinalIgnoreCase);
+
+    if (!confirmado)
+        Console.WriteLine("Pedido cancelado; nenhuma operação foi enviada.");
+
+    return confirmado;
+}
+
+private void ExibirResultadoOrdem(OrdemInvestimento ordem)
+{
+    Console.WriteLine(ordem.Status == StatusOrdemInvestimento.Executada
+        ? "\nPedido executado e carteira atualizada."
+        : "\nPedido rejeitado; a carteira não foi alterada.");
+    Console.WriteLine($"Código: {ordem.Codigo}");
+    Console.WriteLine($"Data: {ordem.DataHora:dd/MM/yyyy HH:mm:ss}");
+    Console.WriteLine($"Ativo: {ordem.Ticker} | Quantidade: {ordem.Quantidade}");
+    Console.WriteLine($"Total: {FormatarMoeda(ordem.ValorTotal)} | Status: {ordem.Status}");
+
+    if (!string.IsNullOrWhiteSpace(ordem.MotivoRejeicao))
+        Console.WriteLine($"Motivo: {ordem.MotivoRejeicao}");
 }
 
 private void InicializarMercadoSimulado()
@@ -51,11 +94,12 @@ public void IniciarMenuPrincipal()
         Console.Clear();
 
         Console.WriteLine("==================================================");
-        Console.WriteLine($"   PAINEL FINANCEIRO PORTFY - {_usuario.Nome.ToUpper()}");
+        Console.WriteLine($"PAINEL FINANCEIRO PORTFY | {_usuario.Nome.ToUpper(CulturaPtBr)}");
         Console.WriteLine("==================================================");
-        Console.WriteLine($"Salário Mensal:     R$ {_usuario.SalarioMensal:F2}");
-        Console.WriteLine($"Saldo em Carteira:  R$ {_carteira.SaldoDisponivel:F2}");
-        Console.WriteLine($"Patrimônio Total:   R$ {_carteira.CalcularPatrimonioTotal():F2}");
+        Console.WriteLine("RESUMO FINANCEIRO");
+        Console.WriteLine($"Salário mensal:       {FormatarMoeda(_usuario.SalarioMensal),15}");
+        Console.WriteLine($"Saldo disponível:     {FormatarMoeda(_carteira.SaldoDisponivel),15}");
+        Console.WriteLine($"Patrimônio total:     {FormatarMoeda(_carteira.CalcularPatrimonioTotal()),15}");
         Console.WriteLine("==================================================");
         Console.WriteLine("1. Gerenciar Salário / Orçamento");
         Console.WriteLine("2. Realizar Aporte Simulado");
@@ -64,6 +108,7 @@ public void IniciarMenuPrincipal()
         Console.WriteLine("5. Exibir Gráfico de Salário e Patrimônio");
         Console.WriteLine("6. Exibir Gráfico de Patrimônio");
         Console.WriteLine("7. Exibir Relatório Financeiro");
+        Console.WriteLine("8. Gerenciar Pedidos de Investimento");
         Console.WriteLine("0. Sair");
         Console.WriteLine("==================================================");
 
@@ -109,6 +154,10 @@ public void IniciarMenuPrincipal()
                 PressionarParaContinuar();
                 break;
 
+            case "8":
+                MenuPedidosInvestimento();
+                break;
+
             case "0":
                 executar = false;
                 Console.WriteLine("\nSaindo do Portfy... Até logo!");
@@ -122,6 +171,83 @@ public void IniciarMenuPrincipal()
     }
 }
 
+private void MenuPedidosInvestimento()
+{
+    bool voltar = false;
+
+    while (!voltar)
+    {
+        Console.Clear();
+        Console.WriteLine("==================================================");
+        Console.WriteLine("          PEDIDOS DE INVESTIMENTO");
+        Console.WriteLine("==================================================");
+        Console.WriteLine($"Saldo disponível: {FormatarMoeda(_carteira.SaldoDisponivel)}");
+        Console.WriteLine($"Pedidos registrados: {_gerenciadorPedidos.Listar().Count}");
+        Console.WriteLine();
+        Console.WriteLine("1. Criar pedido de compra");
+        Console.WriteLine("2. Criar pedido de venda");
+        Console.WriteLine("3. Consultar histórico de pedidos");
+        Console.WriteLine("0. Voltar");
+        Console.WriteLine("==================================================");
+        Console.Write("Escolha uma opção: ");
+
+        switch (Console.ReadLine())
+        {
+            case "1":
+                Console.Clear();
+                ComprarAtivoFluxo();
+                PressionarParaContinuar();
+                break;
+            case "2":
+                Console.Clear();
+                VenderAtivoFluxo();
+                PressionarParaContinuar();
+                break;
+            case "3":
+                ListarPedidosInvestimento();
+                PressionarParaContinuar();
+                break;
+            case "0":
+                voltar = true;
+                break;
+            default:
+                Console.WriteLine("\nOpção inválida.");
+                PressionarParaContinuar();
+                break;
+        }
+    }
+}
+
+private void ListarPedidosInvestimento()
+{
+    Console.Clear();
+    Console.WriteLine("=== HISTÓRICO DE PEDIDOS ===");
+
+    IReadOnlyList<OrdemInvestimento> ordens = _gerenciadorPedidos.Listar();
+    if (ordens.Count == 0)
+    {
+        Console.WriteLine("\nNenhum pedido registrado nesta sessão.");
+        return;
+    }
+
+    Console.WriteLine(
+        $"{"Código",-12} {"Data e hora",-17} {"Tipo",-7} {"Ativo",-10} " +
+        $"{"Qtd.",6} {"Unitário",15} {"Total",15}  Status");
+    Console.WriteLine(new string('-', 100));
+
+    foreach (OrdemInvestimento ordem in ordens)
+    {
+        Console.WriteLine(
+            $"{ordem.Codigo,-12} {ordem.DataHora:dd/MM/yy HH:mm}  " +
+            $"{ordem.Tipo,-7} {ordem.Ticker,-10} " +
+            $"{ordem.Quantidade,6} {FormatarMoeda(ordem.PrecoUnitario),15} " +
+            $"{FormatarMoeda(ordem.ValorTotal),15}  {ordem.Status}");
+
+        if (!string.IsNullOrWhiteSpace(ordem.MotivoRejeicao))
+            Console.WriteLine($"  Motivo: {ordem.MotivoRejeicao}");
+    }
+}
+
 // ============================================================
 // MENU DE SALÁRIO E ORÇAMENTOS
 // ============================================================
@@ -132,11 +258,12 @@ private void MenuOrcamentos()
 
     while (!voltar)
     {
+        Console.Clear();
 
         Console.WriteLine("==================================================");
         Console.WriteLine("       GERENCIAR SALARIO E ORCAMENTOS");
         Console.WriteLine("==================================================");
-        Console.WriteLine($"Salario atual: R$ {_usuario.SalarioMensal:F2}");
+        Console.WriteLine($"Salário atual: {FormatarMoeda(_usuario.SalarioMensal)}");
         Console.WriteLine();
         Console.WriteLine("1. Criar Nova Categoria de Gasto");
         Console.WriteLine("2. Registrar Despesa em Categoria");
@@ -208,7 +335,7 @@ private void CriarCategoria()
     }
 
     Console.Write(
-        "Limite Máximo (R$) (0 para cancelar): ");
+        $"Limite máximo (ex.: {FormatarMoeda(1250)}, 0 para cancelar): ");
 
     string limiteTexto = Console.ReadLine() ?? "";
 
@@ -242,7 +369,7 @@ private void CriarCategoria()
 
         Console.WriteLine("\nCategoria criada com sucesso!");
         Console.WriteLine(
-            $"Percentual do salário: {percentual:F2}%");
+            $"Percentual do salário: {percentual.ToString("F2", CulturaPtBr)}%");
     }
     catch (Exception ex)
     {
@@ -275,7 +402,7 @@ private void RegistrarDespesa()
         {
             Console.WriteLine(
                 $"{i + 1}. {_orcamentos[i].NomeCategoria} " +
-                $"(Gasto Atual: R$ {_orcamentos[i].ValorGastoAtual:F2})");
+                $"(Gasto atual: {FormatarMoeda(_orcamentos[i].ValorGastoAtual)})");
         }
 
         Console.WriteLine("0. Cancelar");
@@ -342,13 +469,13 @@ private void RegistrarDespesa()
             {
                 Console.WriteLine(
                     $"\n[ALERTA] Limite ultrapassado em " +
-                    $"R$ {Math.Abs(categoria.ObterSaldoRestante()):F2}!");
+                    $"{FormatarMoeda(Math.Abs(categoria.ObterSaldoRestante()))}!");
             }
             else
             {
                 Console.WriteLine(
                     $"\nDespesa computada. " +
-                    $"Saldo restante: R$ {categoria.ObterSaldoRestante():F2}");
+                    $"Saldo restante: {FormatarMoeda(categoria.ObterSaldoRestante())}");
             }
         }
         catch (Exception ex)
@@ -388,9 +515,9 @@ private void ListarOrcamentos()
                 : "[REGULAR]";
 
         Console.WriteLine(
-            $"{orc.NomeCategoria.PadRight(15)} | " +
-            $"Gasto: R$ {orc.ValorGastoAtual:F2} / " +
-            $"Limite: R$ {orc.LimiteDefinido:F2} | " +
+            $"{orc.NomeCategoria,-18} " +
+            $"Gasto: {FormatarMoeda(orc.ValorGastoAtual),15} / " +
+            $"Limite: {FormatarMoeda(orc.LimiteDefinido),15}  " +
             $"{status}");
     }
 
@@ -398,10 +525,10 @@ private void ListarOrcamentos()
         _usuario.CalcularRendaDisponivel(totalGasto);
 
     Console.WriteLine(
-        $"\nTotal de despesas: R$ {totalGasto:F2}");
+        $"\nTotal de despesas: {FormatarMoeda(totalGasto)}");
 
     Console.WriteLine(
-        $"Renda restante do salário: R$ {saldoRestanteSalario:F2}");
+        $"Renda restante do salário: {FormatarMoeda(saldoRestanteSalario)}");
 
     PressionarParaContinuar();
 }
@@ -412,7 +539,7 @@ private void AtualizarSalario()
 
     Console.WriteLine("=== ATUALIZAR SALÁRIO ===");
     Console.WriteLine(
-        $"Salário atual: R$ {_usuario.SalarioMensal:F2}");
+        $"Salário atual: {FormatarMoeda(_usuario.SalarioMensal)}");
 
     Console.Write(
         "\nDigite o novo salário mensal " +
@@ -493,7 +620,7 @@ private void MenuAporteSimulado()
         _carteira.AdicionarAporte(aporte);
 
         Console.WriteLine(
-            $"\nAporte de R$ {valor:F2} " +
+            $"\nAporte de {FormatarMoeda(valor)} " +
             "creditado com sucesso!");
     }
     catch (Exception ex)
@@ -521,7 +648,7 @@ private void MenuNegociacaoAtivos()
         Console.WriteLine("             NEGOCIAÇÃO DE ATIVOS");
         Console.WriteLine("==================================================");
         Console.WriteLine(
-            $"Saldo Disponível: R$ {_carteira.SaldoDisponivel:F2}");
+            $"Saldo disponível: {FormatarMoeda(_carteira.SaldoDisponivel)}");
         Console.WriteLine();
         Console.WriteLine("1. Comprar Ativos");
         Console.WriteLine("2. Vender Ativos");
@@ -577,7 +704,7 @@ private void ComprarAtivoFluxo()
         Console.WriteLine(
             $"{i + 1}. [{ativo.Ticker}] " +
             $"{ativo.Nome} ({ativo.Tipo}) - " +
-            $"Preço: R$ {ativo.PrecoAtual:F2}");
+            $"Preço: {FormatarMoeda(ativo.PrecoAtual)}");
     }
 
     Console.WriteLine("0. Cancelar");
@@ -600,7 +727,7 @@ private void ComprarAtivoFluxo()
 
     if (idx < 1 || idx > _mercadoAtivos.Count)
     {
-        Console.WriteLine("\nFalha na compra: {ex.Message}.");
+        Console.WriteLine("\nNúmero de ativo inválido.");
         return;
     }
 
@@ -630,22 +757,11 @@ private void ComprarAtivoFluxo()
         return;
     }
 
-    try
-    {
-        _carteira.ComprarAtivo(
-            selecionado,
-            qtd);
+    if (!ConfirmarOrdem(TipoOrdemInvestimento.Compra, selecionado, qtd))
+        return;
 
-        Console.WriteLine(
-            $"\nCompra efetuada! " +
-            $"{qtd}x {selecionado.Ticker} " +
-            "adicionados à sua carteira.");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine(
-            $"\nFalha na compra: {ex.Message}");
-    }
+    OrdemInvestimento ordem = _gerenciadorPedidos.Comprar(_carteira, selecionado, qtd);
+    ExibirResultadoOrdem(ordem);
 }
 
 private void VenderAtivoFluxo()
@@ -667,10 +783,10 @@ private void VenderAtivoFluxo()
         var pos = posicoes[i];
 
         Console.WriteLine(
-            $"{i + 1}. [{pos.Ativo.Ticker}] " +
-            $"Qtd: {pos.Quantidade} | " +
-            $"Preço Médio: R$ {pos.PrecoMedio:F2} | " +
-            $"Cotação: R$ {pos.Ativo.PrecoAtual:F2}");
+            $"{i + 1,2}. {pos.Ativo.Ticker,-8} " +
+            $"Qtd.: {pos.Quantidade,5} | " +
+            $"Preço médio: {FormatarMoeda(pos.PrecoMedio),15} | " +
+            $"Cotação: {FormatarMoeda(pos.Ativo.PrecoAtual),15}");
     }
 
     Console.WriteLine("0. Cancelar");
@@ -724,22 +840,11 @@ private void VenderAtivoFluxo()
         return;
     }
 
-    try
-    {
-        _carteira.VenderAtivo(
-            selecionada.Ativo,
-            qtd);
+    if (!ConfirmarOrdem(TipoOrdemInvestimento.Venda, selecionada.Ativo, qtd))
+        return;
 
-        Console.WriteLine(
-            $"\nVenda efetuada! " +
-            $"{qtd}x {selecionada.Ativo.Ticker} " +
-            "negociados com sucesso.");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine(
-            $"\nFalha na venda: {ex.Message}");
-    }
+    OrdemInvestimento ordem = _gerenciadorPedidos.Vender(_carteira, selecionada.Ativo, qtd);
+    ExibirResultadoOrdem(ordem);
 }
 
 private void ListarPosicoes()
@@ -754,6 +859,8 @@ private void ListarPosicoes()
         return;
     }
 
+    Console.WriteLine("Ativo    Qtd.     Preço médio        Cotação      Valor atual");
+
     foreach (var posicao in _carteira.Posicoes)
     {
         decimal valorTotalPosicao =
@@ -761,11 +868,11 @@ private void ListarPosicoes()
             posicao.Ativo.PrecoAtual;
 
         Console.WriteLine(
-            $"[{posicao.Ativo.Ticker.PadRight(6)}] " +
-            $"Qtd: {posicao.Quantidade.ToString().PadRight(4)} | " +
-            $"P.Médio: R$ {posicao.PrecoMedio:F2} | " +
-            $"Atual: R$ {posicao.Ativo.PrecoAtual:F2} | " +
-            $"Subtotal: R$ {valorTotalPosicao:F2}");
+            $"{posicao.Ativo.Ticker,-8} " +
+            $"{posicao.Quantidade,5} " +
+            $"{FormatarMoeda(posicao.PrecoMedio),15} " +
+            $"{FormatarMoeda(posicao.Ativo.PrecoAtual),15} " +
+            $"{FormatarMoeda(valorTotalPosicao),15}");
     }
 }
 
@@ -792,13 +899,13 @@ private void SimularOscilacaoMercado()
 
         string variacaoFormatada =
             ativo.RentabilidadeSimulada >= 0
-                ? $"+{ativo.RentabilidadeSimulada:F2}%"
-                : $"{ativo.RentabilidadeSimulada:F2}%";
+                ? $"+{ativo.RentabilidadeSimulada.ToString("F2", CulturaPtBr)}%"
+                : $"{ativo.RentabilidadeSimulada.ToString("F2", CulturaPtBr)}%";
 
         Console.WriteLine(
-            $"[{ativo.Ticker.PadRight(6)}] " +
-            $"R$ {precoAnterior:F2} -> " +
-            $"R$ {ativo.PrecoAtual:F2} " +
+            $"{ativo.Ticker,-8} " +
+            $"{FormatarMoeda(precoAnterior),15} -> " +
+            $"{FormatarMoeda(ativo.PrecoAtual),15} " +
             $"({variacaoFormatada})");
     }
 
@@ -832,7 +939,7 @@ public void GerarGraficoSalario()
         "=== GRÁFICO: DISTRIBUIÇÃO DO SALÁRIO ===");
 
     Console.WriteLine(
-        $"Salário Base: R$ {_usuario.SalarioMensal:F2}\n");
+        $"Salário base: {FormatarMoeda(_usuario.SalarioMensal)}\n");
 
     if (_orcamentos.Count == 0)
     {
@@ -859,9 +966,10 @@ public void GerarGraficoSalario()
             new string('█', blocos);
 
         Console.WriteLine(
-            $"{item.NomeCategoria.PadRight(15)} " +
+            $"{item.NomeCategoria,-18} " +
             $"[{barra.PadRight(25, '-')}] " +
-            $"{(proporcao * 100):F0}% gasto");
+            $"{(proporcao * 100).ToString("F0", CulturaPtBr)}% gasto " +
+            $"({FormatarMoeda(item.ValorGastoAtual)} / {FormatarMoeda(item.LimiteDefinido)})");
     }
 }
 
@@ -900,18 +1008,18 @@ public void GerarGraficoPatrimonio()
         (int)(percAlocado * 0.25m);
 
     Console.WriteLine(
-        $"Patrimônio Total: R$ {patrimonio:F2}\n");
+        $"Patrimônio total: {FormatarMoeda(patrimonio)}\n");
 
     Console.WriteLine(
         $"Saldo Líquido:  " +
         $"[{new string('█', blocosSaldo).PadRight(25, '-')}] " +
-        $"{percSaldo:F1}% " +
-        $"(R$ {saldo:F2})");
+        $"{percSaldo.ToString("F1", CulturaPtBr)}% " +
+        $"({FormatarMoeda(saldo)})");
 
     Console.WriteLine(
         $"Investimentos:  " +
         $"[{new string('█', blocosAlocado).PadRight(25, '-')}] " +
-        $"{percAlocado:F1}% " +
-        $"(R$ {alocado:F2})");
+        $"{percAlocado.ToString("F1", CulturaPtBr)}% " +
+        $"({FormatarMoeda(alocado)})");
     }
 }
