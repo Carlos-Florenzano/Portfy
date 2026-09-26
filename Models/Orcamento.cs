@@ -25,20 +25,36 @@ public class Orcamento
         if (limiteDefinido < 0)
             throw new ArgumentOutOfRangeException(nameof(limiteDefinido), "O limite definido não pode ser negativo.");
 
-        if (percentualDoSalario < 0)
-            throw new ArgumentOutOfRangeException(nameof(percentualDoSalario), "O percentual do salário não pode ser negativo.");
+        if (!TemNoMaximoDuasCasasDecimais(limiteDefinido))
+            throw new ArgumentException("O limite definido não pode ter mais de duas casas decimais.", nameof(limiteDefinido));
 
-        NomeCategoria = nomeCategoria;
+        if (percentualDoSalario < 0)
+            throw new ArgumentOutOfRangeException(nameof(percentualDoSalario), "O percentual do salário não pode ser negativo.");    
+
+        NomeCategoria = nomeCategoria.Trim();
         LimiteDefinido = limiteDefinido;
         PercentualDoSalario = percentualDoSalario;
         ValorGastoAtual = 0;
     }
 
     // Adiciona uma nova despesa ao orçamento.
-    public void AdicionarDespesa(decimal valor)
+    public void AdicionarDespesa(decimal valor, bool confirmarValorExcepcional = false)
     {
         if (valor <= 0)
             throw new ArgumentOutOfRangeException(nameof(valor), "O valor da despesa deve ser maior que zero.");
+
+        if (!TemNoMaximoDuasCasasDecimais(valor))
+            throw new ArgumentException("O valor da despesa não pode ter mais de duas casas decimais.", nameof(valor));
+
+        // Trava de sanidade: despesas únicas acima de 3x o limite exigem confirmação explícita
+        const decimal MULTIPLICADOR_ALERTA = 3.0m;
+        if (valor > LimiteDefinido * MULTIPLICADOR_ALERTA && !confirmarValorExcepcional)
+        {
+            throw new InvalidOperationException(
+                $"O valor {valor:C} é muito superior ao limite da categoria ({LimiteDefinido:C}). " +
+                "Se o valor estiver correto, confirme a operação enviando 'true' para confirmarValorExcepcional."
+            );
+        }
 
         ValorGastoAtual += valor;
     }
@@ -48,4 +64,10 @@ public class Orcamento
 
     // Retorna o valor restante disponível no orçamento.
     public decimal ObterSaldoRestante() => LimiteDefinido - ValorGastoAtual;
+
+    // Método auxiliar para validar se o valor decimal tem no máximo 2 casas decimais
+    private static bool TemNoMaximoDuasCasasDecimais(decimal valor)
+    {
+        return decimal.Remainder(valor * 100, 1) == 0;
+    }
 }
