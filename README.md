@@ -43,7 +43,7 @@ Adotou-se a estratégia de **Refatoração Modular Incremental** antes da integr
   * Testes de navegação: realizadas verificações nos menus de orçamento, aporte e negociação de ativos para garantir o retorno correto ao menu anterior após cada operação.
   * Todas feitas na branch Dashboard-e-relatorio
 
-* **NOVA BRANCH CRIADA.
+* NOVA BRANCH CRIADA.
   * Foi criada uma nova branch denominada de feat/Implementação-da-Segunda-Tela-de-Pedido pelo acaso de a nova interface de pedidos interferir com o que já havia sido criado na branch main.
   * Na mesma branch foram ciradas as classes `GerenciadorPedidosInvestimento.cs` e `OrdemInvestimento.cs`.
   * Todos os namespaces começam com `Portfy` e usam segmentos PascalCase que representam a camada e o domínio.
