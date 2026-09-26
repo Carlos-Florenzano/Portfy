@@ -43,7 +43,9 @@ Adotou-se a estratégia de **Refatoração Modular Incremental** antes da integr
   * Proteção de coleções usando `IReadOnlyCollection` contra manipulação externa indevida (ex: `.Clear()`).
   * Padronização de todos os tipos monetários para `decimal` (garantia de precisão de centavos).
   * Remoção de acoplamento com o `Console` em conformidade com o **SRP (Princípio da Responsabilidade Única)**.
-* **`Program.cs` & `Dashboard.cs`**: Estabelecida a estrutura de injeção de dependência no orquestrador e criado o laço contínuo do menu interativo no terminal.
+
+* **`Program.cs` & `Dashboard.cs`**:
+  * Estabelecida a estrutura de injeção de dependência no orquestrador e criado o laço contínuo do menu interativo no terminal.
 
 * `Dashboard.cs`.
   * Melhoria da navegação: ajustado o fluxo dos menus de Salário/Orçamento e Negociação de Ativos para permitir o retorno ao menu anterior sem voltar diretamente ao menu principal.
