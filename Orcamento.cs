@@ -1,6 +1,6 @@
 using System;
 
-namespace PortifyModulo1;
+namespace Portfy.Dominio.Financas;
 
 public class Orcamento
 {
