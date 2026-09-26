@@ -465,7 +465,7 @@ private void RegistrarDespesa()
 
             categoria.AdicionarDespesa(gasto);
 
-            if (categoria.ValidarEstouroOrcamento())
+            if (categoria.ObterSaldoRestante() < 0)
             {
                 Console.WriteLine(
                     $"\n[ALERTA] Limite ultrapassado em " +
@@ -510,7 +510,7 @@ private void ListarOrcamentos()
         totalGasto += orc.ValorGastoAtual;
 
         string status =
-            orc.ValidarEstouroOrcamento()
+            orc.ObterSaldoRestante() < 0
                 ? "[ESTOURADO]"
                 : "[REGULAR]";
 
