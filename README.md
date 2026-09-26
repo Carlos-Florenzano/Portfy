@@ -23,9 +23,20 @@ Adotou-se a estratégia de **Refatoração Modular Incremental** antes da integr
 
 ### 2. Saneamento do Core Financeiro e Correções Técnicas
 
-* **`Usuario.cs`**: Encapsulamento de mutadores (`private set`), validação defensiva via construtor e migração para o namespace `GestaoSalarioOrcamento`.
-* **`Ativo.cs`**: Isolamento em arquivo próprio e adição de validação de cotações positivas.
-* **`AporteSimulado.cs`**: Implementação de construtor e fechamento de acessores do estado.
+* **`Usuario.cs`**:
+  * Encapsulamento de mutadores (`private set`), validação defensiva via construtor e migração para o namespace `GestaoSalarioOrcamento`.
+  * Organização do código: os construtores e validações foram reorganizados para melhorar a leitura e manutenção.
+  * Validação do salário: mantida a regra que impede o cadastro de salário negativo. A exceção utilizada foi alterada de ArgumentException para ArgumentOutOfRangeException, tornando o erro mais específico.
+  * Validação das despesas: adicionada uma validação no método CalcularRendaDisponivel(), impedindo que o total de despesas seja informado com valor negativo.
+  * Integridade dos dados: foram mantidas as propriedades com private set, evitando alterações indevidas nos dados do usuário.
+  * Validação do usuário: foram mantidas as verificações para impedir ID menor ou igual a zero e nome vazio.
+
+* **`Ativo.cs`**:
+  * Isolamento em arquivo próprio e adição de validação de cotações positivas.
+
+* **`AporteSimulado.cs`**:
+  * Implementação de construtor e fechamento de acessores do estado.
+
 * **`CarteiraSimulada.cs`**:
   * Adição de mecanismo de sincronização (`lock`) para **Thread Safety** durante movimentações.
   * Correção da regra de negócio do Patrimônio Total (uso do `PrecoAtual` da cotação de mercado em vez do custo histórico `PrecoMedio`).
@@ -34,7 +45,7 @@ Adotou-se a estratégia de **Refatoração Modular Incremental** antes da integr
   * Remoção de acoplamento com o `Console` em conformidade com o **SRP (Princípio da Responsabilidade Única)**.
 * **`Program.cs` & `Dashboard.cs`**: Estabelecida a estrutura de injeção de dependência no orquestrador e criado o laço contínuo do menu interativo no terminal.
 
-* Modificações feitas em `Dashboard.cs`.
+* `Dashboard.cs`.
   * Melhoria da navegação: ajustado o fluxo dos menus de Salário/Orçamento e Negociação de Ativos para permitir o retorno ao menu anterior sem voltar diretamente ao menu principal.
   * Cancelamento de operações: adicionada a opção 0 para cancelar operações durante a entrada de dados.
   * Correção da leitura de dados: corrigidos os fluxos que realizavam mais de uma leitura (Console.ReadLine()) para a mesma informação, evitando que o usuário precisasse digitar os dados duas vezes.
