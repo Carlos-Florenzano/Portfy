@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SimuladorFinanceiro;
+namespace Portfy.Dominio.Investimentos;
 
 public class AporteSimulado
 {
