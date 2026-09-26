@@ -26,8 +26,8 @@ Adotou-se a estratégia de **Refatoração Modular Incremental** antes da integr
 * **`Usuario.cs`**:
   * Encapsulamento de mutadores (`private set`), validação defensiva via construtor e migração para o namespace `GestaoSalarioOrcamento`.
   * Organização do código: os construtores e validações foram reorganizados para melhorar a leitura e manutenção.
-  * Validação do salário: mantida a regra que impede o cadastro de salário negativo. A exceção utilizada foi alterada de ArgumentException para ArgumentOutOfRangeException, tornando o erro mais específico.
-  * Validação das despesas: adicionada uma validação no método CalcularRendaDisponivel(), impedindo que o total de despesas seja informado com valor negativo.
+  * Validação do salário: mantida a regra que impede o cadastro de salário negativo. A exceção utilizada foi alterada de `ArgumentException` para `ArgumentOutOfRangeException`, tornando o erro mais específico.
+  * Validação das despesas: adicionada uma validação no método `CalcularRendaDisponivel()`, impedindo que o total de despesas seja informado com valor negativo.
   * Integridade dos dados: foram mantidas as propriedades com private set, evitando alterações indevidas nos dados do usuário.
   * Validação do usuário: foram mantidas as verificações para impedir ID menor ou igual a zero e nome vazio.
 
@@ -50,7 +50,7 @@ Adotou-se a estratégia de **Refatoração Modular Incremental** antes da integr
 * `Dashboard.cs`.
   * Melhoria da navegação: ajustado o fluxo dos menus de Salário/Orçamento e Negociação de Ativos para permitir o retorno ao menu anterior sem voltar diretamente ao menu principal.
   * Cancelamento de operações: adicionada a opção 0 para cancelar operações durante a entrada de dados.
-  * Correção da leitura de dados: corrigidos os fluxos que realizavam mais de uma leitura (Console.ReadLine()) para a mesma informação, evitando que o usuário precisasse digitar os dados duas vezes.
+  * Correção da leitura de dados: corrigidos os fluxos que realizavam mais de uma leitura `(Console.ReadLine())` para a mesma informação, evitando que o usuário precisasse digitar os dados duas vezes.
   * Validação de entradas: aprimoradas as validações de valores inválidos, quantidades e opções de menu.
   * Mensagens de navegação: adicionadas mensagens informando quando uma operação foi cancelada ou quando ocorreu uma entrada inválida.
   * Testes de navegação: realizadas verificações nos menus de orçamento, aporte e negociação de ativos para garantir o retorno correto ao menu anterior após cada operação.
