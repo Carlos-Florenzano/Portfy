@@ -25,6 +25,13 @@ Adotou-se a estratégia de **Refatoração Modular Incremental** antes da integr
   * Remoção de acoplamento com o `Console` em conformidade com o **SRP (Princípio da Responsabilidade Única)**.
 * **`Program.cs` & `Dashboard.cs`**: Estabelecida a estrutura de injeção de dependência no orquestrador e criado o laço contínuo do menu interativo no terminal.
 
+* Melhoria da navegação: ajustado o fluxo dos menus de Salário/Orçamento e Negociação de Ativos para permitir o retorno ao menu anterior sem voltar diretamente ao menu principal.
+* Cancelamento de operações: adicionada a opção 0 para cancelar operações durante a entrada de dados.
+* Correção da leitura de dados: corrigidos os fluxos que realizavam mais de uma leitura (Console.ReadLine()) para a mesma informação, evitando que o usuário precisasse digitar os dados duas vezes.
+* Validação de entradas: aprimoradas as validações de valores inválidos, quantidades e opções de menu.
+* Mensagens de navegação: adicionadas mensagens informando quando uma operação foi cancelada ou quando ocorreu uma entrada inválida.
+* Testes de navegação: realizadas verificações nos menus de orçamento, aporte e negociação de ativos para garantir o retorno correto ao menu anterior após cada operação.
+
 ---
 
 ### 3. Padronização de Código (.NET 6+ / C# 10+)
