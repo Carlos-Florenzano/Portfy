@@ -48,6 +48,7 @@ public void IniciarMenuPrincipal()
 
     while (executar)
     {
+        Console.Clear();
 
         Console.WriteLine("==================================================");
         Console.WriteLine($"   PAINEL FINANCEIRO PORTFY - {_usuario.Nome.ToUpper()}");
@@ -114,7 +115,7 @@ public void IniciarMenuPrincipal()
                 break;
 
             default:
-                Console.WriteLine("\nOpção inválida! Tente novamente.");
+                Console.WriteLine("\nOpção inválida! Escolha uma opcao do menu.");
                 PressionarParaContinuar();
                 break;
         }
@@ -131,7 +132,6 @@ private void MenuOrcamentos()
 
     while (!voltar)
     {
-        Console.Clear();
 
         Console.WriteLine("==================================================");
         Console.WriteLine("       GERENCIAR SALARIO E ORCAMENTOS");
@@ -287,7 +287,7 @@ private void RegistrarDespesa()
         if (!int.TryParse(entrada, out int idx))
         {
             Console.WriteLine(
-                "\nDigite um número válido.");
+                "\nCategoria inválida. Escolha uma categoria válida..");
 
             PressionarParaContinuar();
             continue;
@@ -459,7 +459,7 @@ private void MenuAporteSimulado()
 {
     Console.Clear();
 
-    Console.Write("=== REALIZAR APORTE SIMULADO (0 para cancelar): R$ ===");
+    Console.Write("=== REALIZAR APORTE SIMULADO R$ ===");
     
     Console.Write(
         "Informe o valor a depositar na carteira " +
@@ -600,7 +600,7 @@ private void ComprarAtivoFluxo()
 
     if (idx < 1 || idx > _mercadoAtivos.Count)
     {
-        Console.WriteLine("\nAtivo inválido.");
+        Console.WriteLine("\nFalha na compra: {ex.Message}.");
         return;
     }
 
