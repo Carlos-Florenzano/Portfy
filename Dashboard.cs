@@ -254,95 +254,113 @@ private void CriarCategoria()
 
 private void RegistrarDespesa()
 {
-    Console.Clear();
+    bool voltar = false;
 
-    Console.WriteLine("=== REGISTRAR DESPESA ===");
-
-    if (_orcamentos.Count == 0)
+    while (!voltar)
     {
-        Console.WriteLine("\nNenhuma categoria cadastrada.");
-        PressionarParaContinuar();
-        return;
-    }
+        Console.Clear();
 
-    Console.WriteLine("\nSelecione a categoria:");
+        Console.WriteLine("=== REGISTRAR DESPESA ===");
 
-    for (int i = 0; i < _orcamentos.Count; i++)
-    {
-        Console.WriteLine(
-            $"{i + 1}. {_orcamentos[i].NomeCategoria} " +
-            $"(Gasto Atual: R$ {_orcamentos[i].ValorGastoAtual:F2})");
-    }
+        if (_orcamentos.Count == 0)
+        {
+            Console.WriteLine("\nNenhuma categoria cadastrada.");
+            PressionarParaContinuar();
+            return;
+        }
 
-    Console.WriteLine("0. Cancelar");
+        Console.WriteLine("\nSelecione a categoria:");
 
-    Console.Write("\nNúmero: ");
-
-    if (!int.TryParse(Console.ReadLine(), out int idx))
-    {
-        Console.WriteLine("\nDigite um número válido.");
-        PressionarParaContinuar();
-        return;
-    }
-
-    if (idx == 0)
-    {
-        return;
-    }
-
-    if (idx < 1 || idx > _orcamentos.Count)
-    {
-        Console.WriteLine("\nCategoria inválida.");
-        PressionarParaContinuar();
-        return;
-    }
-
-    Console.Write(
-    "\nValor do gasto a adicionar " +
-    "(0 para cancelar): R$ ");
-
-    string gastoTexto = Console.ReadLine() ?? "";
-
-    if (FoiCancelado(gastoTexto))
-    {
-        Console.WriteLine("\nOperação cancelada.");
-        PressionarParaContinuar();
-        return;
-    }
-
-    if (!decimal.TryParse(gastoTexto, out decimal gasto) ||
-        gasto <= 0)
-    {
-        Console.WriteLine("\nValor de gasto inválido.");
-        PressionarParaContinuar();
-        return;
-    }
-
-    try
-    {
-        var categoria = _orcamentos[idx - 1];
-
-        categoria.AdicionarDespesa(gasto);
-
-        if (categoria.ValidarEstouroOrcamento())
+        for (int i = 0; i < _orcamentos.Count; i++)
         {
             Console.WriteLine(
-                $"\n[ALERTA] Limite ultrapassado em " +
-                $"R$ {Math.Abs(categoria.ObterSaldoRestante()):F2}!");
+                $"{i + 1}. {_orcamentos[i].NomeCategoria} " +
+                $"(Gasto Atual: R$ {_orcamentos[i].ValorGastoAtual:F2})");
         }
-        else
+
+        Console.WriteLine("0. Cancelar");
+
+        Console.Write("\nNúmero: ");
+
+        string entrada = Console.ReadLine() ?? "";
+
+        if (!int.TryParse(entrada, out int idx))
         {
             Console.WriteLine(
-                $"\nDespesa computada. " +
-                $"Saldo restante: R$ {categoria.ObterSaldoRestante():F2}");
-        }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"\nErro ao registrar despesa: {ex.Message}");
-    }
+                "\nDigite um número válido.");
 
-    PressionarParaContinuar();
+            PressionarParaContinuar();
+            continue;
+        }
+
+        if (idx == 0)
+        {
+            Console.WriteLine("\nOperação cancelada.");
+            PressionarParaContinuar();
+            return;
+        }
+
+        if (idx < 1 || idx > _orcamentos.Count)
+        {
+            Console.WriteLine(
+                "\nCategoria inválida. Escolha uma categoria válida.");
+
+            PressionarParaContinuar();
+            continue;
+        }
+
+        Console.Write(
+            "\nValor do gasto a adicionar " +
+            "(0 para cancelar): R$ ");
+
+        string gastoTexto = Console.ReadLine() ?? "";
+
+        if (FoiCancelado(gastoTexto))
+        {
+            Console.WriteLine("\nOperação cancelada.");
+            PressionarParaContinuar();
+            return;
+        }
+
+        if (!decimal.TryParse(gastoTexto, out decimal gasto) ||
+            gasto <= 0)
+        {
+            Console.WriteLine(
+                "\nValor de gasto inválido.");
+
+            PressionarParaContinuar();
+            continue;
+        }
+
+        try
+        {
+            var categoria = _orcamentos[idx - 1];
+
+            categoria.AdicionarDespesa(gasto);
+
+            if (categoria.ValidarEstouroOrcamento())
+            {
+                Console.WriteLine(
+                    $"\n[ALERTA] Limite ultrapassado em " +
+                    $"R$ {Math.Abs(categoria.ObterSaldoRestante()):F2}!");
+            }
+            else
+            {
+                Console.WriteLine(
+                    $"\nDespesa computada. " +
+                    $"Saldo restante: R$ {categoria.ObterSaldoRestante():F2}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(
+                $"\nErro ao registrar despesa: {ex.Message}");
+        }
+
+        PressionarParaContinuar();
+
+        return;
+    }
 }
 
 private void ListarOrcamentos()
