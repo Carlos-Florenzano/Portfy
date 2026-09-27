@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
 namespace Portfy.Dominio.Investimentos;
+
 
 public class CarteiraSimulada
 {

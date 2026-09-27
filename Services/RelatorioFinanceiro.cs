@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic; // Fornece estruturas de dados genéricas,
 // como List<T>, Dictionary<TKey, TValue> e outras coleções.
 // Neste código, é utilizado para trabalhar com List<Orcamento>.
+
 using Portfy.Dominio.Financas;
 using Portfy.Dominio.Investimentos;
 
 namespace Portfy.Apresentacao;
+
 
 public class RelatorioFinanceiro
 {

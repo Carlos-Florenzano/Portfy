@@ -2,6 +2,7 @@ using System;
 
 namespace Portfy.Dominio.Financas;
 
+
 public class Orcamento
 {
     // Nome da categoria de gasto (ex: Alimentação, Transporte, Lazer, Moradia).
@@ -59,6 +60,10 @@ public class Orcamento
         ValorGastoAtual += valor;
     }
 
+    // Verifica se o valor gasto ultrapassou o limite definido.
+    public bool ValidarEstouroOrcamento() => ValorGastoAtual > LimiteDefinido;
+
+
     // Retorna o valor restante disponível no orçamento.
     public decimal ObterSaldoRestante() => LimiteDefinido - ValorGastoAtual;
 
@@ -67,4 +72,7 @@ public class Orcamento
     {
         return decimal.Remainder(valor * 100, 1) == 0;
     }
+
 }
+
+
