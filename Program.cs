@@ -1,6 +1,3 @@
-using Portfy.Models;
-using Portfy.Services;
-
 var builder = WebApplication.CreateBuilder(args);
 
 

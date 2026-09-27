@@ -1,5 +1,3 @@
-using System;
-
 namespace Portfy.Models;
 /// Categorias de ativos disponíveis para simulação no Portfy.
 public enum TipoAtivo
