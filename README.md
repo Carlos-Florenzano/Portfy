@@ -6,9 +6,9 @@ O **Portfy** é um sistema em C# voltado para a gestão de orçamento pessoal e 
 
 ## Integrantes do Grupo
 
-- Carlos Florenzano
-- Lucas Gomes
-- Sérgio Lucas Gomes
+- Carlos Florenzano[cite: 10]
+- Lucas Gomes[cite: 10]
+- Sérgio Lucas Gomes[cite: 10]
 - Arthur Salonikio
 - Karina Braga Louzada
 - Miguel Martins
@@ -19,7 +19,7 @@ O **Portfy** é um sistema em C# voltado para a gestão de orçamento pessoal e 
 
 ### 1. Justificativa de Engenharia de Software
 
-Adotou-se a **implementação estrutural do projeto web de forma incremental**. A migração do projeto é realizada por fases bem definidas — isolando a camada de domínio (`Models/`), ajustando a segurança para requisições concorrentes (`Thread Safety`) e documentando a base do código —, o que garante estabilidade antes da exposição dos endpoints e da integração final com a interface do usuário.
+Adotou-se a **implementação estrutural do projeto web de forma incremental**. A migração do projeto é realizada por fases bem definidas — isolando a camada de domínio (`Models/`), ajustando a segurança para requisições concorrentes (`Thread Safety`), implementando a camada de API HTTP (`Controllers/`) e documentando a base do código —, o que garante estabilidade antes da integração final com a interface do usuário.
 
 ---
 
@@ -27,6 +27,7 @@ Adotou-se a **implementação estrutural do projeto web de forma incremental**. 
 
 * **Reorganização de Namespaces**: Reestruturação e padronização completa dos namespaces do projeto para alinhamento direto com a hierarquia física de diretórios e pastas (`Controllers`, `Models`, `Services`).
 * **Transição para o Projeto Web**: Evolução da arquitetura para ASP.NET Core Web API, readequando o core financeiro para suportar concorrência e preparar a estrutura de recebimento que atenderá ao frontend em definitivo.
+* **Construção da Camada de Controllers**: Criação dos controllers RESTful (`AporteController`, `CarteiraController`, `OrcamentoController`, `UsuarioController` e `AtivoController`), expondo os recursos do sistema através de rotas HTTP com verbos apropriados e payloads JSON.
 * **Mapeamento e Documentação Extensa**: Análise e documentação aprofundada de todos os modelos de domínio, regras de negócio e mecanismos de sincronização (`lock` / `Monitor`) até o momento desta atualização.
 
 ---
@@ -35,5 +36,5 @@ Adotou-se a **implementação estrutural do projeto web de forma incremental**. 
 
 - [x] **Consolidação do Domain Core**: Validação e isolamento das entidades de domínio e regras de negócio (`Models/`).
 - [x] **Ajustes de Concorrência**: Preparação do domínio para requisições paralelas via HTTP (`lock` / Thread Safety).
-- [ ] **Exposição dos Endpoints REST**: Finalização da implementação dos `Controllers` (`CarteiraController`, `AporteController`) para servir payloads em JSON.
-- [ ] **Integração com Frontend**: Desenvolvimento de interface SPA reativa em **React + TypeScript**.
+- [x] **Exposição dos Endpoints REST**: Implementação e validação da camada de `Controllers` (`CarteiraController`, `AporteController`, `OrcamentoController`, `UsuarioController`, `AtivoController`) para servir payloads padronizados em JSON.
+- [ ] **Integração com Frontend**: Desenvolvimento da interface SPA reativa em **React + TypeScript**, pronta para consumir a base de endpoints REST estruturada na Web API.
