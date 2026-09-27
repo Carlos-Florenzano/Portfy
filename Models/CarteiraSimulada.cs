@@ -58,7 +58,11 @@ public class CarteiraSimulada
         if (aporte == null)
             throw new ArgumentNullException(nameof(aporte));
 
-        lock (_lock)
+
+        // O _lock trava um aporte por vez, de forma a livrar o problema de dois pedidos um em cada thread, que poderia
+        //sobrescrever e apagar os dados de um deles, é uma ferramenta muito específica, mas necessária, de baixo nível do .NET.
+        // É o famoso thread safety, que garante esse tipo de segurança, que é crucial ainda mais em dados financeiros.
+        lock (_lock) 
         {
             _aportes.Add(aporte);
             SaldoDisponivel += aporte.ValorAportado;
