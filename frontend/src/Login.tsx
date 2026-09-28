@@ -61,7 +61,7 @@ function Login({ onLogin, onCadastro }: LoginProps) {
             <div className="login-card">
 
                 <div className="login-logo">
-                    <h1>PORTFY</h1>
+                    <h1><span>PORT</span>FY</h1>
                     <p>Gestão financeira e investimentos</p>
                 </div>
 
