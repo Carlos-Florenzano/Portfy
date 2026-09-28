@@ -36,7 +36,7 @@ function Login({ onLogin, onCadastro }: LoginProps) {
             const dados = await resposta.json();
 
             if (!resposta.ok) {
-                setErro(dados.mensagem || dados.Mensagem || "Email ou senha incorretos.");
+                setErro(dados.mensagem || dados.Mensagem || "Login ou senha incorretos.");
                 return;
             }
 
