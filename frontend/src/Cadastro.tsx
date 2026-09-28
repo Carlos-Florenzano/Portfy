@@ -74,7 +74,7 @@ function Cadastro({ onVoltar }: CadastroProps) {
             <div className="cadastro-card">
 
                 <div className="cadastro-logo">
-                    <h1>PORTFY</h1>
+                    <h1><span>PORT</span>FY</h1>
                     <p>Crie sua conta</p>
                 </div>
 
