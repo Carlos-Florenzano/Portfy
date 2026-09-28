@@ -15,7 +15,7 @@ O **Portfy** é um sistema em C# voltado para a gestão de orçamento pessoal e 
 
 ---
 
-## Log de Alterações e Arquitetura (28/09/2026)
+## Log de Alterações e Arquitetura (27/09/2026)
 
 ### 1. Justificativa de Engenharia de Software
 
