@@ -1,0 +1,99 @@
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #111827;
+    padding: 20px;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 420px;
+    padding: 40px;
+    background: #111827;
+    border-radius: 16px;
+    box-sizing: border-box;
+}
+
+.login-logo {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.login-logo h1 {
+    margin: 0;
+    font-size: 42px;
+    color: #FFFFFF;
+}
+
+.login-logo p {
+    margin-top: 8px;
+    color: #FFFFFF;
+}
+
+.campo {
+    margin-bottom: 20px;
+}
+
+.campo label {
+    display: block;
+    margin-bottom: 8px;
+    color: #FFFFFF;
+    font-weight: bold;
+}
+
+.campo input {
+    width: 100%;
+    padding: 13px;
+    box-sizing: border-box;
+    border: 1px solid #FFFFFF;
+    border-radius: 8px;
+    background: #111827;
+    color: #FFFFFF;
+    font-size: 15px;
+    outline: none;
+}
+
+.campo input::placeholder {
+    color: #FFFFFF;
+}
+
+.campo input:focus {
+    border-color: #2563EB;
+}
+
+.login-card button {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    background: #2563EB;
+    color: #FFFFFF;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.login-card button:hover {
+    background: #1d4ed8;
+}
+
+.mensagem-erro {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #FFFFFF;
+    font-size: 14px;
+}
+
+.cadastro {
+    margin-top: 25px;
+    text-align: center;
+    color: #FFFFFF;
+    font-size: 14px;
+}
+
+.cadastro span {
+    color: #2563EB;
+    cursor: pointer;
+}
