@@ -8,6 +8,7 @@ interface Usuario {
 }
 
 function Dashboard() {
+  // para teste depois vou apagar console.log("Dashboard foi carregado!"); 
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
@@ -18,17 +19,52 @@ function Dashboard() {
 
   async function carregarUsuario() {
     try {
+      setCarregando(true);
+      setErro("");
+
       const resposta = await fetch("http://localhost:5000/api/usuario");
 
       if (!resposta.ok) {
-        throw new Error("Não foi possível carregar o usuário.");
+        throw new Error("Não foi possível carregar os dados do usuário.");
       }
 
-      const dados: Usuario = await resposta.json();
+      const dados = await resposta.json();
 
-      setUsuario(dados);
+      // Pega o id do usuário salvo durante o login
+      const dadosArmazenados = localStorage.getItem("usuarioLogado");
+      const usuarioLogado = dadosArmazenados ? JSON.parse(dadosArmazenados) : null;
+
+      let usuarioEncontrado = null;
+      if (Array.isArray(dados) && dados.length > 0) {
+        if (usuarioLogado?.id) {
+          usuarioEncontrado = dados.find((u: any) => (u.id ?? u.Id) === usuarioLogado.id);
+        }
+        if (!usuarioEncontrado) {
+          usuarioEncontrado = dados[dados.length - 1];
+        }
+      } else if (!Array.isArray(dados) && dados) {
+        usuarioEncontrado = dados;
+      }
+
+      if (!usuarioEncontrado) {
+        // Caso a lista de usuários no backend ainda esteja vazia
+        setUsuario({
+          id: 1,
+          nome: "Investidor",
+          salarioMensal: 0,
+        });
+        return;
+      }
+
+      const usuarioFormatado: Usuario = {
+        id: usuarioEncontrado.id ?? usuarioEncontrado.Id ?? 1,
+        nome: usuarioEncontrado.nome ?? usuarioEncontrado.Nome ?? "Investidor",
+        salarioMensal: Number(usuarioEncontrado.salarioMensal ?? usuarioEncontrado.SalarioMensal ?? 0),
+      };
+
+      setUsuario(usuarioFormatado);
     } catch (error) {
-      setErro("Não foi possível conectar com o backend.");
+      setErro("Não foi possível conectar com o backend. Verifique se a API está rodando na porta 5000.");
       console.error(error);
     } finally {
       setCarregando(false);
@@ -36,7 +72,7 @@ function Dashboard() {
   }
 
   function formatarMoeda(valor: number) {
-    return valor.toLocaleString("pt-BR", {
+    return (valor || 0).toLocaleString("pt-BR", {
       style: "currency",
       currency: "BRL",
     });
@@ -132,7 +168,7 @@ function Dashboard() {
 
           <div className="profile">
             <div className="profile-avatar">
-              {usuario.nome.charAt(0).toUpperCase()}
+              {usuario.nome ? usuario.nome.charAt(0).toUpperCase() : "U"}
             </div>
 
             <div>

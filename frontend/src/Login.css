@@ -24,7 +24,14 @@
 .login-logo h1 {
     margin: 0;
     font-size: 42px;
+    font-weight: 800;
+    letter-spacing: 2px;
     color: #FFFFFF;
+}
+
+.login-logo h1 span {
+    color: #3B82F6;
+    font-weight: 800;
 }
 
 .login-logo p {
