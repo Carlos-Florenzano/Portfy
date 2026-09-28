@@ -30,10 +30,18 @@ function Dashboard() {
 
       const dados = await resposta.json();
 
-      // Como o backend retorna uma lista de usuários, pegamos o mais recente ou o primeiro
+      // Pega o id do usuário salvo durante o login
+      const dadosArmazenados = localStorage.getItem("usuarioLogado");
+      const usuarioLogado = dadosArmazenados ? JSON.parse(dadosArmazenados) : null;
+
       let usuarioEncontrado = null;
       if (Array.isArray(dados) && dados.length > 0) {
-        usuarioEncontrado = dados[dados.length - 1];
+        if (usuarioLogado?.id) {
+          usuarioEncontrado = dados.find((u: any) => (u.id ?? u.Id) === usuarioLogado.id);
+        }
+        if (!usuarioEncontrado) {
+          usuarioEncontrado = dados[dados.length - 1];
+        }
       } else if (!Array.isArray(dados) && dados) {
         usuarioEncontrado = dados;
       }
