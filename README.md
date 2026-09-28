@@ -15,7 +15,7 @@ O **Portfy** é um sistema em C# voltado para a gestão de orçamento pessoal e 
 
 ---
 
-## Log de Alterações e Arquitetura (27/09/2026)
+## Log de Alterações e Arquitetura (28/09/2026)
 
 ### 1. Justificativa de Engenharia de Software
 
@@ -37,4 +37,5 @@ Adotou-se a **implementação estrutural do projeto web de forma incremental**. 
 - [x] **Consolidação do Domain Core**: Validação e isolamento das entidades de domínio e regras de negócio (`Models/`).
 - [x] **Ajustes de Concorrência**: Preparação do domínio para requisições paralelas via HTTP (`lock` / Thread Safety).
 - [x] **Exposição dos Endpoints REST**: Implementação e validação da camada de `Controllers` (`CarteiraController`, `AporteController`, `OrcamentoController`, `UsuarioController`, `AtivoController`) para servir payloads padronizados em JSON.
-- [ ] **Integração com Frontend**: Desenvolvimento da interface SPA reativa em **React + TypeScript**, pronta para consumir a base de endpoints REST estruturada na Web API.
+- [x] **Integração com Frontend**: Desenvolvimento da interface SPA reativa em **React + TypeScript**, pronta para consumir a base de endpoints REST estruturada na Web API.
+- [ ] **Finalização do MVP Web**: Finalização da primeira interface web utilizável, com o objetivo de realizar o primeiro Release.
