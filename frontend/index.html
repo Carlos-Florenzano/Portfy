@@ -1,0 +1,39 @@
+<!--  O index.html é o único arquivo HTML real em todo o projeto.
+Ele funciona como a fundação onde o React constrói a interface.  -->
+
+<!-- <!doctype html> e <html lang="en">: Declara que o arquivo usa o padrão HTML5 moderno
+e que o idioma padrão do documento é o inglês (pode mudar para pt-BR se quiser). -->
+<!doctype html>
+<html lang="en">
+  <head>
+
+    <!-- <meta charset="UTF-8" />: Define a codificação de caracteres como UTF-8,
+    garantindo o suporte correto a acentos (ã, ç, é) e símbolos no navegador. -->
+    <meta charset="UTF-8" />0
+
+    <!-- <link rel="icon" type="image/svg+xml" href="/favicon.svg" />: Aponta para o ícone que aparece
+    na aba do navegador (o favicon do Vite). -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- <meta name="viewport" content="width=device-width, initial-scale=1.0" />: Meta tag essencial para responsividade.
+     Informa ao navegador mobile para ajustar a largura da página de acordo com a tela do dispositivo(celular,
+     tablet ou desktop) sem fazer zoom automático desproporcional. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+
+    <!-- <title>Portfy — Gestão de Investimentos e Carteira</title>: O título que aparece na aba do navegador -->
+    <title>Portfy — Gestão de Investimentos e Carteira</title>
+  </head>
+  <body> <!-- Aqui é a onde o React com o CSS e TypeScript vão buildar a estética e regra de negócios -->
+
+
+    <!-- O "Chão em Branco": Esta div começa completamente vazia no servidor. Ela serve de âncora para o React.
+    É exatamente dentro desta div com id root que a árvore do React vai injetar todos os componentes
+    (App.tsx, Ativos.tsx, botões, tabelas e gráficos) em tempo de execução. -->
+    <div id="root"></div>
+
+    <!-- type="module": Avisa ao navegador que este arquivo usa o sistema de módulos ES6 nativo do JavaScript
+    (suportando import/export). -->
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

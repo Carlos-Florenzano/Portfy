@@ -1,0 +1,12 @@
+{
+  "files": [],
+  "references": [
+    
+    // Contém as regras de compilação para todo o código que roda no navegador (.ts e .tsx dentro de src/).
+    { "path": "./tsconfig.app.json" },
+
+    // Contém as regras de compilação para os arquivos de infraestrutura que rodam diretamente no ambiente do Node.js
+    // (e não no navegador do usuário).
+    { "path": "./tsconfig.node.json" }
+  ]
+}

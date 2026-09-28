@@ -1,7 +1,5 @@
 var builder = WebApplication.CreateBuilder(args);
 
-
-
 // Configuração dos Controllers e Swagger:
 
 // builder.Services.AddControllers():
@@ -12,8 +10,6 @@ var builder = WebApplication.CreateBuilder(args);
 // e devolva as respostas em formato JSON.
 builder.Services.AddControllers();
 
-// obs: O Swagger (hoje conhecido oficialmente como OpenAPI)
-// é uma ferramenta que cria automaticamente uma documentação interativa para a Web API.
 // builder.Services.AddEndpointsApiExplorer():
 // No Backend: Analisa todo o código do seu projeto e vasculha quais rotas,
 // verbos HTTP e parâmetros existem nos seus Controllers.
@@ -29,9 +25,7 @@ builder.Services.AddEndpointsApiExplorer();
 // TypeScript automaticamente, evitando que você precise digitar os modelos manualmente no React.
 builder.Services.AddSwaggerGen();
 
-
-
-// Permite chamadas HTTP vindas do React (Vite)
+// Permite chamadas HTTP vindas do React (Vite / Create React App)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp",
@@ -42,10 +36,16 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+// Executa a interface visual do Swagger apenas em ambiente de desenvolvimento
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
+// Ativa o middleware de CORS com a política definida acima
 app.UseCors("AllowReactApp");
+
 app.UseAuthorization();
 app.MapControllers();
 
