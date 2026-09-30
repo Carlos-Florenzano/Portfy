@@ -9,7 +9,7 @@ O **Portfy** é um sistema em C# voltado para a gestão de orçamento pessoal e 
 - Carlos Florenzano, MA: COLOCAR AINDA
 - Lucas Gomes, MA: 06014478
 - Sérgio Lucas Gomes, MA: 06015126
-- Arthur Salonikio, MA: COLOCAR AINDA
+- Arthur Salonikio, MA: 06014408
 - Karina Braga Louzada, MA: 06013932
 - Miguel Martins, MA: 06014120
 
