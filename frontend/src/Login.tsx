@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./Login.css";
+import { usuarioService } from "./services/UsuarioService";
 
 interface LoginProps {
     onLogin: () => void;
@@ -24,23 +25,12 @@ function Login({ onLogin, onCadastro }: LoginProps) {
             setCarregando(true);
             setErro("");
 
-            const resposta = await fetch("http://localhost:5000/api/usuario/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    login: email,
-                    senha: senha
-                })
+            const dados = await usuarioService.login({
+                login: email,
+                senha: senha
             });
 
-            const dados = await resposta.json();
-
-            if (!resposta.ok) {
-                setErro(dados.mensagem || dados.Mensagem || "Login ou senha incorretos.");
-                return;
-            }
-
-            // Salva as credenciais do usuário logado na sessão local
+            // Guarda o ID do utilizador autenticado
             localStorage.setItem("usuarioLogado", JSON.stringify({
                 id: dados.id ?? dados.Id,
                 nome: dados.nome ?? dados.Nome,
@@ -48,9 +38,9 @@ function Login({ onLogin, onCadastro }: LoginProps) {
             }));
 
             onLogin();
-        } catch (err) {
-            setErro("Não foi possível conectar com o backend.");
-            console.error(err);
+        } catch (err: any) {
+            const mensagem = err.response?.data?.mensagem || err.response?.data?.Mensagem || "Login ou senha incorretos.";
+            setErro(mensagem);
         } finally {
             setCarregando(false);
         }
@@ -59,14 +49,12 @@ function Login({ onLogin, onCadastro }: LoginProps) {
     return (
         <div className="login-container">
             <div className="login-card">
-
                 <div className="login-logo">
                     <h1><span>PORT</span>FY</h1>
                     <p>Gestão financeira e investimentos</p>
                 </div>
 
                 <form onSubmit={entrar}>
-
                     <div className="campo">
                         <label htmlFor="email">E-mail</label>
                         <input
@@ -89,25 +77,17 @@ function Login({ onLogin, onCadastro }: LoginProps) {
                         />
                     </div>
 
-                    {erro && (
-                        <p className="mensagem-erro">
-                            {erro}
-                        </p>
-                    )}
+                    {erro && <p className="mensagem-erro">{erro}</p>}
 
                     <button type="submit" disabled={carregando}>
                         {carregando ? "Entrando..." : "Entrar"}
                     </button>
-
                 </form>
 
                 <p className="cadastro">
                     Ainda não possui uma conta?
-                    <span onClick={onCadastro}>
-                        Criar conta
-                    </span>
+                    <span onClick={onCadastro}>Criar conta</span>
                 </p>
-
             </div>
         </div>
     );

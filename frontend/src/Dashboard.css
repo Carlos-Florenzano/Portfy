@@ -318,3 +318,90 @@
   cursor: pointer;
   font-weight: 600;
 }
+/* =========================
+   EDIÇÃO DO CADASTRO
+========================= */
+/* Card de Edição */
+.card-edicao {
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+  background-color: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.card-titulo-edicao {
+  font-size: 0.85rem;
+  color: #6c757d;
+  font-weight: 500;
+  display: block;
+}
+
+.card-subtitulo-edicao {
+  margin: 0.25rem 0 0 0;
+  font-size: 1.25rem;
+  color: #1a1a24;
+  font-weight: 700;
+}
+
+/* Grid do Formulário */
+.form-edicao-grid {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.campo-edicao {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 220px;
+}
+
+.campo-edicao label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.campo-edicao input {
+  padding: 0.65rem 0.9rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #1a202c;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.campo-edicao input:focus {
+  border-color: #0066cc;
+}
+
+/* Botão Salvar */
+.acoes-edicao {
+  margin-bottom: 2px;
+}
+
+.btn-salvar {
+  background-color: #0066cc;
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem 1.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.btn-salvar:hover {
+  background-color: #0052a3;
+}
+
+.btn-salvar:active {
+  transform: scale(0.98);
+}
