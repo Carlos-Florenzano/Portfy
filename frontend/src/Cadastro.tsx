@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./Cadastro.css";
+import { usuarioService } from "./services/UsuarioService";
 
 interface CadastroProps {
     onVoltar: () => void;
@@ -31,39 +32,25 @@ function Cadastro({ onVoltar }: CadastroProps) {
             setCarregando(true);
             setErro("");
 
-            // 1. Cadastra o usuário no C#
-            const resposta = await fetch("http://localhost:5000/api/usuario/cadastro", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    nome: nome,
-                    login: email,
-                    senha: senha,
-                    salarioMensal: Number(salario) || 0
-                })
+            // 1. Cadastra o utilizador via serviço (CREATE)
+            const dados = await usuarioService.cadastrar({
+                nome,
+                login: email,
+                senha,
+                salarioMensal: Number(salario) || 0
             });
 
-            const dados = await resposta.json();
-
-            if (!resposta.ok) {
-                setErro(dados.mensagem || dados.Mensagem || "Erro ao cadastrar.");
-                return;
-            }
-
-            // 2. No UsuarioController, o login exige conta verificada.
-            // Ativamos a conta para permitir o login direto.
-            if (dados.id || dados.Id) {
-                const idUsuario = dados.id ?? dados.Id;
-                await fetch(`http://localhost:5000/api/usuario/${idUsuario}/verificar`, {
-                    method: "POST"
-                });
+            // 2. Activa a conta para permitir o login imediato
+            const idUsuario = dados.id ?? dados.Id;
+            if (idUsuario) {
+                await usuarioService.verificarConta(idUsuario);
             }
 
             alert("Cadastro realizado com sucesso! Faça login para entrar.");
             onVoltar();
-        } catch (err) {
-            setErro("Não foi possível conectar com o backend.");
-            console.error(err);
+        } catch (err: any) {
+            const mensagem = err.response?.data?.mensagem || err.response?.data?.Mensagem || "Erro ao conectar com o backend.";
+            setErro(mensagem);
         } finally {
             setCarregando(false);
         }
@@ -72,14 +59,12 @@ function Cadastro({ onVoltar }: CadastroProps) {
     return (
         <div className="cadastro-container">
             <div className="cadastro-card">
-
                 <div className="cadastro-logo">
                     <h1><span>PORT</span>FY</h1>
                     <p>Crie sua conta</p>
                 </div>
 
                 <form onSubmit={cadastrar}>
-
                     <div className="campo">
                         <label htmlFor="nome">Nome</label>
                         <input
@@ -135,25 +120,17 @@ function Cadastro({ onVoltar }: CadastroProps) {
                         />
                     </div>
 
-                    {erro && (
-                        <p className="mensagem-erro">
-                            {erro}
-                        </p>
-                    )}
+                    {erro && <p className="mensagem-erro">{erro}</p>}
 
                     <button type="submit" disabled={carregando}>
                         {carregando ? "Cadastrando..." : "Criar conta"}
                     </button>
-
                 </form>
 
                 <p className="voltar-login">
                     Já possui uma conta?
-                    <span onClick={onVoltar}>
-                        Entrar
-                    </span>
+                    <span onClick={onVoltar}>Entrar</span>
                 </p>
-
             </div>
         </div>
     );

@@ -127,6 +127,32 @@ public bool ContaVerificada { get; private set; }
         // Reutiliza a validação do método no construtor
         AtualizarSalario(salarioMensal);
     }
+    // Adicione dentro da classe Usuario em Usuario.cs:
+
+    public void AtualizarNome(string novoNome)
+    {
+        if (string.IsNullOrWhiteSpace(novoNome))
+        {
+            throw new ArgumentException("O nome do usuário não pode ser vazio.", nameof(novoNome));
+        }
+
+        Nome = novoNome;
+    }
+
+    public void AlterarSenha(string senhaAntiga, string novaSenha)
+    {
+        if (!VerificarSenha(senhaAntiga))
+        {
+            throw new ArgumentException("A senha atual informada está incorreta.");
+        }
+
+        if (string.IsNullOrWhiteSpace(novaSenha))
+        {
+            throw new ArgumentException("A nova senha não pode ser vazia.", nameof(novaSenha));
+        }
+
+        SenhaHash = CriarHashSenha(novaSenha);
+    }
 
 
     // MÉTODO ORIGINAL
