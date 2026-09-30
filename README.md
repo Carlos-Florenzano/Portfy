@@ -6,7 +6,7 @@ O **Portfy** é um sistema em C# voltado para a gestão de orçamento pessoal e 
 
 ## Integrantes do Grupo
 
-- Carlos Florenzano, MA: COLOCAR AINDA
+- Carlos Florenzano, MA: 06014437
 - Lucas Gomes, MA: 06014478
 - Sérgio Lucas Gomes, MA: 06015126
 - Arthur Salonikio, MA: 06014408
@@ -15,7 +15,7 @@ O **Portfy** é um sistema em C# voltado para a gestão de orçamento pessoal e 
 
 ---
 
-## Log de Alterações e Arquitetura (27/09/2026)
+## Log de Alterações e Arquitetura (30/09/2026)
 
 ### 1. Justificativa de Engenharia de Software
 
@@ -29,13 +29,3 @@ Adotou-se a **implementação estrutural do projeto web de forma incremental**. 
 * **Transição para o Projeto Web**: Evolução da arquitetura para ASP.NET Core Web API, readequando o core financeiro para suportar concorrência e preparar a estrutura de recebimento que atenderá ao frontend em definitivo.
 * **Construção da Camada de Controllers**: Criação dos controllers RESTful (`AporteController`, `CarteiraController`, `OrcamentoController`, `UsuarioController` e `AtivoController`), expondo os recursos do sistema através de rotas HTTP com verbos apropriados e payloads JSON.
 * **Mapeamento e Documentação Extensa**: Análise e documentação aprofundada de todos os modelos de domínio, regras de negócio e mecanismos de sincronização (`lock` / `Monitor`) até o momento desta atualização.
-
----
-
-### 3. Roteiro e Próximos Passos (Transição Web API & Frontend)
-
-- [x] **Consolidação do Domain Core**: Validação e isolamento das entidades de domínio e regras de negócio (`Models/`).
-- [x] **Ajustes de Concorrência**: Preparação do domínio para requisições paralelas via HTTP (`lock` / Thread Safety).
-- [x] **Exposição dos Endpoints REST**: Implementação e validação da camada de `Controllers` (`CarteiraController`, `AporteController`, `OrcamentoController`, `UsuarioController`, `AtivoController`) para servir payloads padronizados em JSON.
-- [x] **Integração com Frontend**: Desenvolvimento da interface SPA reativa em **React + TypeScript**, pronta para consumir a base de endpoints REST estruturada na Web API.
-- [ ] **Finalização do MVP Web**: Finalização da primeira interface web utilizável, com o objetivo de realizar o primeiro Release.
