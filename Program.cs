@@ -1,5 +1,12 @@
+﻿using Microsoft.EntityFrameworkCore;
+using Portfy.Data;
+
 var builder = WebApplication.CreateBuilder(args);
 
+// Adicionar o contexto do SQLite
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite("Data Source=portfy.db"));
+    
 // Configuração dos Controllers e Swagger:
 
 // builder.Services.AddControllers():
