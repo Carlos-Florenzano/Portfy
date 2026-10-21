@@ -3,10 +3,12 @@ using Portfy.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Adicionar o contexto do SQLite
+// Adicionar o contexto do SQLite e lê a chave "DefaultConnection" do appsettings.json
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite("Data Source=portfy.db"));
-    
+
 // Configuração dos Controllers e Swagger:
 
 // builder.Services.AddControllers():
