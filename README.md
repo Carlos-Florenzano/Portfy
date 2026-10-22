@@ -15,17 +15,20 @@ O **Portfy** é um sistema em C# voltado para a gestão de orçamento pessoal e 
 
 ---
 
-## Log de Alterações e Arquitetura (30/09/2026)
+## Log de Alterações e Arquitetura (21/10/2026)
 
 ### 1. Justificativa de Engenharia de Software
 
-Adotou-se a **implementação estrutural do projeto web de forma incremental**. A migração do projeto é realizada por fases bem definidas — isolando a camada de domínio (`Models/`), ajustando a segurança para requisições concorrentes (`Thread Safety`), implementando a camada de API HTTP (`Controllers/`) e documentando a base do código —, o que garante estabilidade antes da integração final com a interface do usuário.
+Adotou-se a **implementação incremental** para as funcionalidades, correções estruturais dentro do software em alguns pontos para a implementação do banco de dados SQLite, e ajustes finos com base em feedbacks presentes em /docs.
 
 ---
 
-### 2. Principais Atualizações e Reestruturação
-
-* **Reorganização de Namespaces**: Reestruturação e padronização completa dos namespaces do projeto para alinhamento direto com a hierarquia física de diretórios e pastas (`Controllers`, `Models`, `Services`).
-* **Transição para o Projeto Web**: Evolução da arquitetura para ASP.NET Core Web API, readequando o core financeiro para suportar concorrência e preparar a estrutura de recebimento que atenderá ao frontend em definitivo.
-* **Construção da Camada de Controllers**: Criação dos controllers RESTful (`AporteController`, `CarteiraController`, `OrcamentoController`, `UsuarioController` e `AtivoController`), expondo os recursos do sistema através de rotas HTTP com verbos apropriados e payloads JSON.
-* **Mapeamento e Documentação Extensa**: Análise e documentação aprofundada de todos os modelos de domínio, regras de negócio e mecanismos de sincronização (`lock` / `Monitor`) até o momento desta atualização.
+### 2. Principais Atualizações e Reestruturações com Base em Avaliações Externas
+* **Lista de Ajustes a Fazer:**
+* *Ajustes de Conceitos de Abstração []*
+* *Polimorfismo []* 
+* *Testes das Regras []*
+* *Responsabilidades/Coesão*
+* *Colaboração entre Objetos []*
+* *Tratamento de Erros no Frontend []*
+* *Injeção de Dependências []*
