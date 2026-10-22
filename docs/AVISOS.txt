@@ -1,8 +1,7 @@
 # Depois de acertarmos as classes e o arquivo que foi pedido, deve-se usar:
 
-1 - dotnet tool install --global dotnet-ef - Para instalar a ferramenta global do EF (caso ainda não tenha no computador):
+# 1 - dotnet tool install --global dotnet-ef - Para instalar a ferramenta global do EF (caso ainda não tenha no computador):
 
-2 - dotnet ef migrations add InitialCreate -o Data/Migrations - Ele cria a migração inicial, este comando lê as classes da pasta
-Models e gera o script de criação dentro da pasta Data/Migrations:
+# 2 - dotnet ef migrations add InitialCreate -o Data/Migrations - Ele cria a migração inicial, este comando lê as classes da pasta Models e gera o script de criação dentro da pasta Data/Migrations:
 
-3 - dotnet ef database update - Ele executa a migração para criar o ficheiro SQLite
+# 3 - dotnet ef database update - Ele executa a migração para criar o ficheiro SQLite
