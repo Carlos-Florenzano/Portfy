@@ -24,7 +24,7 @@ Adotou-se a **implementação incremental** para as funcionalidades, correções
 ---
 
 ### 2. Principais Atualizações e Reestruturações com Base em Avaliações Externas
-* **Lista de Ajustes a Fazer:**
+**Lista de Ajustes a Fazer:**
 * *Ajustes de Conceitos de Abstração []*
 * *Polimorfismo []* 
 * *Testes das Regras []*
