@@ -1,4 +1,5 @@
 namespace Portfy.Models;
+// Pelo que eu verifiquei, não precisou mudar.
 public class Orcamento
 {
     // Nome da categoria de gasto (ex: Alimentação, Transporte, Lazer, Moradia).

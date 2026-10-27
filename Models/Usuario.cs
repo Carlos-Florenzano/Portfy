@@ -1,5 +1,6 @@
 using System.Security.Cryptography; // NOVO: necessário para proteger e verificar a senha
-
+// Pelo que eu vi a criptografia PBKDF2/SHA256 precisa passar para um serviço dedicado. Estando na pasta Services 
+// Focado estritamente na identidade e nas finanças do usuário para ter uma alta coesão.
 namespace Portfy.Models;
 
 // Responsabilidade da Classe:
