@@ -1,12 +1,46 @@
 import { useEffect, useState } from "react";
 import "./Dashboard.css";
+import { mensagemDeErro } from "./services/api";
 import { usuarioService } from "./services/UsuarioService";
 import type { Usuario } from "./services/UsuarioService";
+
+interface Aviso {
+  tipo: "sucesso" | "erro";
+  texto: string;
+}
+
+interface UsuarioLogado {
+  id: number;
+}
+
+// Lê a identificação salva no login. Conteúdo inválido é tratado como "sem sessão",
+// porque localStorage não é autenticação (docs/arch.md §9, item 5).
+function lerUsuarioLogado(): UsuarioLogado | null {
+  const dados = localStorage.getItem("usuarioLogado");
+
+  if (!dados) return null;
+
+  try {
+    const usuario: unknown = JSON.parse(dados);
+
+    if (typeof usuario === "object" && usuario !== null && "id" in usuario) {
+      const { id } = usuario as { id: unknown };
+
+      return typeof id === "number" ? { id } : null;
+    }
+
+    return null;
+  } catch {
+    // JSON corrompido: o usuário volta para o login em vez de derrubar a tela.
+    return null;
+  }
+}
 
 function Dashboard() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
+  const [aviso, setAviso] = useState<Aviso | null>(null);
 
   // Estados para edição (UPDATE)
   const [editando, setEditando] = useState(false);
@@ -22,21 +56,21 @@ function Dashboard() {
     try {
       setCarregando(true);
       setErro("");
+      setAviso(null);
 
-      const dadosArmazenados = localStorage.getItem("usuarioLogado");
-      const usuarioLogado = dadosArmazenados ? JSON.parse(dadosArmazenados) : null;
+      const usuarioLogado = lerUsuarioLogado();
 
-      if (!usuarioLogado?.id) {
-        throw new Error("Nenhum usuário logado. Faça login novamente.");
+      if (!usuarioLogado) {
+        setErro("Nenhum usuário logado. Faça login novamente.");
+        return;
       }
 
       const usuarioApi = await usuarioService.obterPorId(usuarioLogado.id);
       setUsuario(usuarioApi);
       setNovoNome(usuarioApi.nome);
       setNovoSalario(usuarioApi.salarioMensal.toString());
-    } catch (error: any) {
-      setErro("Não foi possível carregar os dados do usuário.");
-      console.error(error);
+    } catch (falha: unknown) {
+      setErro(mensagemDeErro(falha));
     } finally {
       setCarregando(false);
     }
@@ -59,10 +93,9 @@ function Dashboard() {
         salarioMensal: Number(novoSalario) || 0
       });
       setEditando(false);
-      alert("Dados atualizados com sucesso!");
-    } catch (err) {
-      alert("Erro ao atualizar os dados.");
-      console.error(err);
+      setAviso({ tipo: "sucesso", texto: "Dados atualizados com sucesso!" });
+    } catch (falha: unknown) {
+      setAviso({ tipo: "erro", texto: mensagemDeErro(falha) });
     }
   }
 
@@ -76,11 +109,9 @@ function Dashboard() {
     try {
       await usuarioService.excluir(usuario.id);
       localStorage.removeItem("usuarioLogado");
-      alert("Conta excluída com sucesso.");
       window.location.reload(); // Redireciona de volta para a tela de login
-    } catch (err) {
-      alert("Erro ao excluir conta.");
-      console.error(err);
+    } catch (falha: unknown) {
+      setAviso({ tipo: "erro", texto: mensagemDeErro(falha) });
     }
   }
 
@@ -162,6 +193,13 @@ function Dashboard() {
             </div>
           </div>
         </header>
+
+        {/* RETORNO DAS AÇÕES: mensagem em tela, sem janela nativa */}
+        {aviso && (
+          <p className={`aviso aviso-${aviso.tipo}`} role="status">
+            {aviso.texto}
+          </p>
+        )}
 
         {/* FORMULÁRIO DE EDIÇÃO DO USUÁRIO (UPDATE) */}
         {editando && (

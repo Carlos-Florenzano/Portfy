@@ -1,61 +1,66 @@
 using Microsoft.AspNetCore.Mvc;
 using Portfy.Models;
+using Portfy.Services.Contracts;
 
 namespace Portfy.Controllers;
 
-// [ApiController]: Ativa utilitários automáticos para REST (validação automática de dados e erros padronizados).
-// [Route("api/[controller]")]: Define a URL base dinâmica substituindo [controller] pelo nome da classe (ex: api/orcamento).
+// [ApiController] ativa utilidades REST; [Route] define api/<nome do recurso>.
+// O orçamento é lido e alterado pelo IOrcamentoService, nunca por campo estático local.
 [ApiController]
 [Route("api/[controller]")]
 public class OrcamentoController : ControllerBase
 {
-    // Mantém o estado da categoria de orçamento na memória (simulado)
-    private static readonly Orcamento _orcamentoAlimentacao = new Orcamento("Alimentação", 1200m, 24m);
+    private readonly IOrcamentoService _orcamentoService;
 
-    // DTO (Data Transfer Object) para registrar uma nova despesa
+    public OrcamentoController(IOrcamentoService orcamentoService)
+    {
+        _orcamentoService = orcamentoService
+            ?? throw new ArgumentNullException(nameof(orcamentoService));
+    }
+
+    // DTO de entrada para registrar uma nova despesa.
     public class AdicionarDespesaRequest
     {
         public decimal Valor { get; set; }
     }
 
     // GET: api/orcamento
-    // Retorna a visão geral da categoria de orçamento, limite e saldos
     [HttpGet]
     public IActionResult ObterOrcamento()
     {
+        var orcamento = _orcamentoService.ObterOrcamento();
+
         return Ok(new
         {
-            NomeCategoria = _orcamentoAlimentacao.NomeCategoria,
-            LimiteDefinido = _orcamentoAlimentacao.LimiteDefinido,
-            ValorGastoAtual = _orcamentoAlimentacao.ValorGastoAtual,
-            PercentualDoSalario = _orcamentoAlimentacao.PercentualDoSalario,
-            SaldoRestante = _orcamentoAlimentacao.ObterSaldoRestante(),
-            Estourado = _orcamentoAlimentacao.ValidarEstouroOrcamento()
+            orcamento.NomeCategoria,
+            orcamento.LimiteDefinido,
+            orcamento.ValorGastoAtual,
+            orcamento.PercentualDoSalario,
+            SaldoRestante = orcamento.ObterSaldoRestante(),
+            Estourado = orcamento.ValidarEstouroOrcamento()
         });
     }
 
     // POST: api/orcamento/despesa
-    // Registra um gasto na categoria e atualiza o saldo
     [HttpPost("despesa")]
     public IActionResult AdicionarDespesa([FromBody] AdicionarDespesaRequest request)
     {
         if (request.Valor <= 0)
-        {
             return BadRequest(new { Mensagem = "O valor da despesa deve ser maior que zero." });
-        }
 
         try
         {
-            // Executa o método de negócio do modelo Orcamento.cs: AdicionarDespesa(decimal valor)
-            _orcamentoAlimentacao.AdicionarDespesa(request.Valor);
+            _orcamentoService.AdicionarDespesa(request.Valor);
+
+            var orcamento = _orcamentoService.ObterOrcamento();
 
             return Ok(new
             {
                 Mensagem = "Despesa adicionada com sucesso!",
-                NomeCategoria = _orcamentoAlimentacao.NomeCategoria,
-                ValorGastoAtual = _orcamentoAlimentacao.ValorGastoAtual,
-                SaldoRestante = _orcamentoAlimentacao.ObterSaldoRestante(),
-                Estourado = _orcamentoAlimentacao.ValidarEstouroOrcamento()
+                orcamento.NomeCategoria,
+                orcamento.ValorGastoAtual,
+                SaldoRestante = orcamento.ObterSaldoRestante(),
+                Estourado = orcamento.ValidarEstouroOrcamento()
             });
         }
         catch (ArgumentOutOfRangeException ex)

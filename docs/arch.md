@@ -96,37 +96,39 @@ A AV1 sugere "uma interface para a carteira". A decisão deste documento (ADR-01
    - `ISenhaHasher` — hash de senha fora do modelo (§13, item 5).
 3. Interface sem consumidor que a injete é proibida. Criar `IFooService` e registrar em DI sem uso é o mesmo que não ter abstração.
 
-### 3.3 Pendências herdadas da AV1 (estado em 2026-10-28)
+### 3.3 Pendências herdadas da AV1 (estado em 2026-10-30)
 
 | Item da AV1 | Situação |
 |---|---|
 | Remover `UI/Dashboard.cs` e a pasta `UI/` | ✅ **resolvido** (commit `cbe4c05`) |
 | Introduzir herança/polimorfismo em `Ativo` | ✅ **resolvido** (commit `4a8be0a`) |
-| Introduzir DI + interface | ❌ pendente (R6) |
-| Escrever testes das invariantes | ❌ pendente (P1-b) |
-| Trocar `alert`/`console.error` por erro em tela + interceptor | ❌ pendente (P1-f) |
+| Introduzir DI + interface | ✅ **resolvido** (R6: 6 contratos em `Services/Contracts/`, registrados em `Program.cs`) |
+| Escrever testes das invariantes | ✅ **resolvido** (`tests/Portfy.Tests`, 61 testes) |
+| Trocar `alert`/`console.error` por erro em tela + interceptor | ✅ **resolvido** (interceptor em `services/api.ts`) |
 | Resíduo de console no backend | ⚠️ `Services/RelatorioFinanceiro.cs` ainda imprime (`Console.Clear`/`WriteLine`) |
 
 ---
 
 ## 4. Estado atual verificado (baseline)
 
-Medido em 2026-10-28. **Não é opinião — é o resultado dos comandos abaixo.**
+Medido em 2026-10-30, após fechar os itens de "O que faltou" da AV1. **Não é opinião — é o resultado dos comandos abaixo.**
 
 | Item | Comando / evidência | Resultado |
 |---|---|---|
-| Build do backend | `dotnet build Portfy.csproj` | **FALHA — 9 erros**, todos em `Controllers/AtivoController.cs` |
+| Build do backend | `dotnet build Portfy.csproj` | **PASSA** — 0 erros, 0 warnings |
 | Build do frontend | `cd frontend && npm run build` | **PASSA** (79 módulos, ~250 ms) |
-| Lint do frontend | `cd frontend && npm run lint` | **FALHA — 3 erros** `@typescript-eslint/no-explicit-any` (`Cadastro.tsx:51`, `Dashboard.tsx:37`, `Login.tsx:41`) |
+| Lint do frontend | `cd frontend && npm run lint` | **PASSA** — 0 erros |
 | Migrations EF | `ls Data/` | **inexistentes** (só `AppDbContext.cs`) |
-| Projeto de testes | busca por `*Tests*` | **inexistente** |
+| Projeto de testes | `dotnet test tests/Portfy.Tests` | **PASSA** — 61 testes, 0 falhas |
 | `AppDbContext` em uso | busca por `AppDbContext` em `*.cs` | **nenhum controller consome o banco** |
 | Autenticação | busca por `AddAuthentication` / `[Authorize]` | **inexistente** |
 | `get; set;` em `Models/` | `grep -rn "get; set;" Models` | **vazio** ✅ (conquista da AV1, preservar) |
-| `alert` no frontend | `grep -rn "alert(" frontend/src` | 5 ocorrências (`Dashboard.tsx:62,64,79,82`, `Cadastro.tsx:49`) |
-| Solution file / Docker / CI | busca por `*.sln`, `Dockerfile*` | **inexistentes** |
+| `alert` no frontend | `grep -rn "alert(" frontend/src` | **vazio** ✅ |
+| Estado de domínio em controller/service | `grep -rn "private static" Controllers Services` | **vazio** ✅ |
+| Solution file | `ls Portfy.slnx` | **existe** — `Portfy.csproj` + `tests/Portfy.Tests` |
+| Docker / CI | busca por `Dockerfile*`, workflows | **inexistentes** |
 
-### 4.1 Erros de build (bloqueadores atuais)
+### 4.1 Erros de build (histórico — resolvido em 2026-10-30)
 
 Todos em `Controllers/AtivoController.cs`, escrito contra a versão antiga de `Ativo`:
 
@@ -136,7 +138,7 @@ Todos em `Controllers/AtivoController.cs`, escrito contra a versão antiga de `A
 | 41, 63, 97 | `CS1061` — `Ativo` não contém `RentabilidadeSimulada` | a propriedade hoje se chama `RentabilidadeAcumulada` |
 | 84, 89 | `CS1061` — `Ativo` não contém `SimularVariacaoPreco` | o método hoje se chama `AtualizarPreco(decimal)` |
 
-**Consequência normativa:** build e lint são gates independentes e ambos estão vermelhos. Nenhuma feature nova antes de R1 e P1-f.
+**Consequência normativa:** build e lint são gates independentes e ambos estão verdes. A correção seguiu R1: catálogo com subclasses concretas de `Ativo`, `RentabilidadeAcumulada` no lugar de `RentabilidadeSimulada` e `AtualizarPreco(decimal)` no lugar de `SimularVariacaoPreco`.
 
 ### 4.2 Três autoridades de estado concorrentes
 
@@ -224,13 +226,13 @@ Versões verificadas nos arquivos do repositório. **Trocar qualquer item exige 
 | Controller devolver objeto anônimo (`new { ... }`) | todos os controllers |
 | Controller conter DTO aninhado | `UsuarioController.cs:13-38`, `AtivoController.cs:24-27`, `AporteController.cs:26-30` |
 | Controller duplicar `try/catch (ArgumentException)` | `UsuarioController.cs` (4 blocos) |
-| Controller/Service guardar estado em `static` mutável | `UsuarioController.cs:9`, `CarteiraController.cs:31`, `AtivoController.cs:15`, `AporteController.cs:24` |
+| Controller/Service guardar estado em `static` mutável | ✅ corrigido — estado vive nos serviços injetados (`Services/`), registrados em `Program.cs` |
 | `Services/` escrever em `Console` | `Services/RelatorioFinanceiro.cs` |
 | Código morto / duplicado | `Models/Posicao.cs` está **inteiro comentado**; a classe real vive em `Models/CarteiraSimulada.cs` |
 | Duas classes públicas no mesmo arquivo | `Posicao` dentro de `CarteiraSimulada.cs` |
 | Pasta ≠ namespace | `Models/Ativos/*.cs` declaram `namespace Portfy.Models` |
-| Frontend usar `any` | `Cadastro.tsx:51`, `Dashboard.tsx:37`, `Login.tsx:41` |
-| Frontend tratar erro com `alert`/`console.error` | `Dashboard.tsx:62-83`, `Cadastro.tsx:49`, `components/Ativos.tsx:26` |
+| Frontend usar `any` | ✅ corrigido — lint em 0 erros |
+| Frontend tratar erro com `alert`/`console.error` | ✅ corrigido — interceptor em `services/api.ts` + mensagem em tela |
 | Frontend calcular valor financeiro autoritativo | `Dashboard.tsx:52-59` recalcula `salarioMensal` localmente |
 
 ---
@@ -675,7 +677,7 @@ Todas devem retornar **vazio** (ou o valor indicado). São baratas e executávei
 | # | Dívida | Evidência | Critério de aceite |
 |---|---|---|---|
 | P0-a | Três autoridades de estado (memória + memória + SQLite morto) | §4.2 | todo estado via `AppDbContext`; zero `static` de domínio (R2) |
-| P0-b | Build do backend falha | §4.1 | `dotnet build` = 0 erros (R1) |
+| P0-b | ✅ resolvido em 2026-10-30 — build do backend verde (R1) | §4.1 | `dotnet build` = 0 erros |
 | P0-c | Connection string configurada é ignorada | `Program.cs:7` vs `:10` | `UseSqlite(connectionString)` |
 | P0-d | `*.db` não ignorados no git | `.gitignore` raiz | `*.db*` ignorado |
 | P0-e | Nenhuma migration versionada | `ls Data/` | `Data/Migrations/` commitado |
@@ -685,11 +687,11 @@ Todas devem retornar **vazio** (ou o valor indicado). São baratas e executávei
 | # | Dívida | Critério de aceite |
 |---|---|---|
 | P1-a | Sem autenticação; login não emite credencial | JWT emitido/validado; carteira com `[Authorize]` |
-| P1-b | Zero testes (dimensão H = 0,0) | `tests/Portfy.Tests` cobrindo as invariantes de R6 |
+| P1-b | ✅ resolvido em 2026-10-30 — `tests/Portfy.Tests` com 61 testes das invariantes de R6 | `dotnet test` = 0 falhas |
 | P1-c | Erros em formato legado e duplicado | middleware único + ProblemDetails |
 | P1-d | PBKDF2 com 100k iterações | ≥ 210k, parametrizado |
 | P1-e | `AllowedHosts: "*"` e CORS hardcoded | allowlist por configuração |
-| P1-f | `alert`/`console.error` e `any` (3 erros de lint) | erro em tela + interceptor; `npm run lint` = 0 erros |
+| P1-f | ✅ resolvido em 2026-10-30 — erro em tela + interceptor; lint em 0 erros | `npm run lint` = 0 erros |
 | P1-g | Sem rate limiting no login | limite por IP/login com resposta `429` |
 
 ### P2 — qualidade e evolução

@@ -1,12 +1,14 @@
 import { useState } from "react";
 import "./Cadastro.css";
+import { mensagemDeErro } from "./services/api";
 import { usuarioService } from "./services/UsuarioService";
 
 interface CadastroProps {
     onVoltar: () => void;
+    onCadastrado: (mensagem: string) => void;
 }
 
-function Cadastro({ onVoltar }: CadastroProps) {
+function Cadastro({ onVoltar, onCadastrado }: CadastroProps) {
     const [nome, setNome] = useState("");
     const [email, setEmail] = useState("");
     const [salario, setSalario] = useState("");
@@ -41,16 +43,13 @@ function Cadastro({ onVoltar }: CadastroProps) {
             });
 
             // 2. Activa a conta para permitir o login imediato
-            const idUsuario = dados.id ?? dados.Id;
-            if (idUsuario) {
-                await usuarioService.verificarConta(idUsuario);
-            }
+            await usuarioService.verificarConta(dados.id);
 
-            alert("Cadastro realizado com sucesso! Faça login para entrar.");
-            onVoltar();
-        } catch (err: any) {
-            const mensagem = err.response?.data?.mensagem || err.response?.data?.Mensagem || "Erro ao conectar com o backend.";
-            setErro(mensagem);
+            // O aviso é exibido na tela de login, sem janela nativa
+            onCadastrado("Cadastro realizado com sucesso! Faça login para entrar.");
+        } catch (falha: unknown) {
+            // A mensagem já vem traduzida pelo interceptor de services/api.ts
+            setErro(mensagemDeErro(falha));
         } finally {
             setCarregando(false);
         }

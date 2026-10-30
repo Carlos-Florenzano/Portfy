@@ -1,4 +1,4 @@
-// Criei o UsuarioService em Service do Frontend para integrar o CRUD para o usuário
+// Integração HTTP do recurso usuário: telas nunca chamam `api` diretamente.
 import { api } from './api';
 
 export interface Usuario {
@@ -22,16 +22,47 @@ export interface AtualizarUsuarioDto {
   salarioMensal: number;
 }
 
+export interface CredenciaisLogin {
+  login: string;
+  senha: string;
+}
+
+// Confirmação devolvida pelo cadastro e pelo login do backend.
+export interface UsuarioConfirmado {
+  mensagem: string;
+  id: number;
+  nome: string;
+  login: string;
+  contaVerificada: boolean;
+}
+
+export interface ContaVerificada {
+  mensagem: string;
+  id: number;
+  contaVerificada: boolean;
+}
+
+export interface UsuarioAtualizado {
+  mensagem: string;
+  id: number;
+  nome: string;
+  salarioMensal: number;
+}
+
+export interface MensagemResposta {
+  mensagem: string;
+}
+
 export const usuarioService = {
   // CREATE (Cadastro)
-  cadastrar: async (dados: CadastroUsuarioDto) => {
-    const resposta = await api.post('/usuario/cadastro', dados);
+  cadastrar: async (dados: CadastroUsuarioDto): Promise<UsuarioConfirmado> => {
+    const resposta = await api.post<UsuarioConfirmado>('/usuario/cadastro', dados);
     return resposta.data;
   },
 
   // Activação da conta
-  verificarConta: async (id: number) => {
-    const resposta = await api.post(`/usuario/${id}/verificar`);
+  verificarConta: async (id: number): Promise<ContaVerificada> => {
+    const resposta = await api.post<ContaVerificada>(`/usuario/${id}/verificar`);
     return resposta.data;
   },
 
@@ -48,20 +79,20 @@ export const usuarioService = {
   },
 
   // UPDATE (Nome e Salário)
-  atualizar: async (id: number, dados: AtualizarUsuarioDto) => {
-    const resposta = await api.put(`/usuario/${id}`, dados);
+  atualizar: async (id: number, dados: AtualizarUsuarioDto): Promise<UsuarioAtualizado> => {
+    const resposta = await api.put<UsuarioAtualizado>(`/usuario/${id}`, dados);
     return resposta.data;
   },
 
   // DELETE (Remover conta)
-  excluir: async (id: number) => {
-    const resposta = await api.delete(`/usuario/${id}`);
+  excluir: async (id: number): Promise<MensagemResposta> => {
+    const resposta = await api.delete<MensagemResposta>(`/usuario/${id}`);
     return resposta.data;
   },
 
   // Login
-  login: async (credenciais: { login: string; senha: string }) => {
-    const resposta = await api.post('/usuario/login', credenciais);
+  login: async (credenciais: CredenciaisLogin): Promise<UsuarioConfirmado> => {
+    const resposta = await api.post<UsuarioConfirmado>('/usuario/login', credenciais);
     return resposta.data;
   }
 };

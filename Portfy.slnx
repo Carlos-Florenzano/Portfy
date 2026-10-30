@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/Portfy.Tests/Portfy.Tests.csproj" />
+  </Folder>
+  <Project Path="Portfy.csproj" />
+</Solution>

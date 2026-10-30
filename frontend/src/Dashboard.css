@@ -405,3 +405,24 @@
 .btn-salvar:active {
   transform: scale(0.98);
 }
+
+/* Retorno das ações da tela: mensagem visível no conteúdo, sem janela nativa. */
+.aviso {
+  margin: 0 0 1.5rem 0;
+  padding: 0.9rem 1.2rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.aviso-sucesso {
+  background-color: #e6f7ec;
+  border-left: 4px solid #1a9e5c;
+  color: #14683d;
+}
+
+.aviso-erro {
+  background-color: #fdeceb;
+  border-left: 4px solid #e63946;
+  color: #a1222c;
+}

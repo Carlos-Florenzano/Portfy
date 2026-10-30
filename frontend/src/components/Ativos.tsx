@@ -1,34 +1,36 @@
 // Ativos.tsx é o componente de domínio visual e integração do módulo de ativos.
-// Ele é responsável por conectar os dados vindo da Web API .NET com a interface reativa renderizada no navegador.
+// Ele consome o ativoService; nenhuma chamada HTTP é feita aqui diretamente.
 
 import { useEffect, useState } from 'react';
-import { api } from '../services/api';
-
-interface Ativo {
-  ticker: string;
-  nome: string;
-  tipo: string;
-  precoAtual: number;
-  rentabilidadeSimulada: number;
-}
+import { mensagemDeErro } from '../services/api';
+import { ativoService } from '../services/AtivoService';
+import type { Ativo } from '../services/AtivoService';
 
 export function Ativos() {
   const [ativos, setAtivos] = useState<Ativo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState('');
 
   useEffect(() => {
-    api.get<Ativo[]>('/ativo')
-      .then(response => {
-        setAtivos(response.data);
+    async function carregar() {
+      try {
+        setErro('');
+        setAtivos(await ativoService.obterTodos());
+      } catch (falha: unknown) {
+        setErro(mensagemDeErro(falha));
+      } finally {
         setLoading(false);
-      })
-      .catch(error => {
-        console.error('Erro ao conectar com a API:', error);
-        setLoading(false);
-      });
+      }
+    }
+
+    void carregar();
   }, []);
 
   if (loading) return <p>Carregando dados da Web API...</p>;
+
+  if (erro) return <p style={{ padding: '20px', color: '#e63946' }}>{erro}</p>;
+
+  if (ativos.length === 0) return <p style={{ padding: '20px' }}>Nenhum ativo disponível.</p>;
 
   return (
     <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif' }}>

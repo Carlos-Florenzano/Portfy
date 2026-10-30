@@ -1,13 +1,15 @@
 import { useState } from "react";
 import "./Login.css";
+import { mensagemDeErro } from "./services/api";
 import { usuarioService } from "./services/UsuarioService";
 
 interface LoginProps {
     onLogin: () => void;
     onCadastro: () => void;
+    aviso?: string;
 }
 
-function Login({ onLogin, onCadastro }: LoginProps) {
+function Login({ onLogin, onCadastro, aviso }: LoginProps) {
     const [email, setEmail] = useState("");
     const [senha, setSenha] = useState("");
     const [erro, setErro] = useState("");
@@ -32,15 +34,15 @@ function Login({ onLogin, onCadastro }: LoginProps) {
 
             // Guarda o ID do utilizador autenticado
             localStorage.setItem("usuarioLogado", JSON.stringify({
-                id: dados.id ?? dados.Id,
-                nome: dados.nome ?? dados.Nome,
-                login: dados.login ?? dados.Login
+                id: dados.id,
+                nome: dados.nome,
+                login: dados.login
             }));
 
             onLogin();
-        } catch (err: any) {
-            const mensagem = err.response?.data?.mensagem || err.response?.data?.Mensagem || "Login ou senha incorretos.";
-            setErro(mensagem);
+        } catch (falha: unknown) {
+            // A mensagem já vem traduzida pelo interceptor de services/api.ts
+            setErro(mensagemDeErro(falha));
         } finally {
             setCarregando(false);
         }
@@ -77,6 +79,7 @@ function Login({ onLogin, onCadastro }: LoginProps) {
                         />
                     </div>
 
+                    {aviso && !erro && <p className="mensagem-sucesso">{aviso}</p>}
                     {erro && <p className="mensagem-erro">{erro}</p>}
 
                     <button type="submit" disabled={carregando}>

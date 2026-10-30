@@ -104,3 +104,9 @@
     color: #2563EB;
     cursor: pointer;
 }
+.mensagem-sucesso {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #7ce38b;
+    font-size: 14px;
+}

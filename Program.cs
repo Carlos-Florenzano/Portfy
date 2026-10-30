@@ -1,5 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Portfy.Data;
+using Portfy.Services;
+using Portfy.Services.Contracts;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +20,17 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // e entenda as requisições HTTP (GET, POST, PUT, DELETE) enviadas pela aplicação React (usando fetch ou axios)
 // e devolva as respostas em formato JSON.
 builder.Services.AddControllers();
+
+// Injeção de dependência: cada controller depende de uma interface do namespace
+// Portfy.Services.Contracts, nunca de uma instância concreta. Singleton porque o estado
+// ainda vive em memória (dívida P0-a): quando o AppDbContext assumir a persistência,
+// estes registros passam a Scoped.
+builder.Services.AddSingleton<IGeradorDeVariacao, GeradorDeVariacaoAleatoria>();
+builder.Services.AddSingleton<IAtivoService, AtivoService>();
+builder.Services.AddSingleton<IUsuarioService, UsuarioService>();
+builder.Services.AddSingleton<ICarteiraService, CarteiraService>();
+builder.Services.AddSingleton<IOrcamentoService, OrcamentoService>();
+builder.Services.AddSingleton<IAporteService, AporteService>();
 
 // builder.Services.AddEndpointsApiExplorer():
 // No Backend: Analisa todo o código do seu projeto e vasculha quais rotas,

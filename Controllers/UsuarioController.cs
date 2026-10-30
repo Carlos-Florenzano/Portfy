@@ -1,15 +1,21 @@
 using Microsoft.AspNetCore.Mvc;
 using Portfy.Models;
+using Portfy.Services.Contracts;
 
 namespace Portfy.Controllers;
 
+// Borda HTTP do CRUD de usuários. Nenhum estado fica aqui: a coleção vive no
+// IUsuarioService, injetado pelo container (ver Program.cs).
 [ApiController]
 [Route("api/[controller]")]
 public class UsuarioController : ControllerBase
 {
-    // Armazenamento em memória (simulado)
-    private static readonly List<Usuario> _usuarios = new List<Usuario>();
-    private static int _proximoId = 1;
+    private readonly IUsuarioService _usuarioService;
+
+    public UsuarioController(IUsuarioService usuarioService)
+    {
+        _usuarioService = usuarioService ?? throw new ArgumentNullException(nameof(usuarioService));
+    }
 
     #region DTOs (Data Transfer Objects)
 
@@ -64,26 +70,18 @@ public class UsuarioController : ControllerBase
         if (request.SalarioMensal < 0)
             return BadRequest(new { Mensagem = "O salário não pode ser negativo." });
 
-        bool loginExiste = _usuarios.Any(u =>
-            u.Login.Equals(request.Login, StringComparison.OrdinalIgnoreCase));
-
-        if (loginExiste)
+        if (_usuarioService.LoginJaExiste(request.Login))
             return Conflict(new { Mensagem = "Esse login já está cadastrado." });
 
         try
         {
-            var novoUsuario = new Usuario(
-                _proximoId,
+            Usuario novoUsuario = _usuarioService.Cadastrar(
                 request.Nome,
                 request.SalarioMensal,
-                DateTime.Now,
                 request.Login,
                 request.Senha);
 
-            _usuarios.Add(novoUsuario);
-            _proximoId++;
-
-            // Retorna 201 Created com a URL do recurso criado no cabeçalho Location
+            // 201 Created com a URL do recurso criado no cabeçalho Location
             return CreatedAtAction(nameof(ObterPorId), new { id = novoUsuario.Id }, new
             {
                 Mensagem = "Usuário cadastrado com sucesso!",
@@ -107,7 +105,7 @@ public class UsuarioController : ControllerBase
     [HttpGet]
     public IActionResult ObterTodos()
     {
-        var lista = _usuarios.Select(usuario => new
+        var lista = _usuarioService.ObterTodos().Select(usuario => new
         {
             usuario.Id,
             usuario.Nome,
@@ -124,9 +122,9 @@ public class UsuarioController : ControllerBase
     [HttpGet("{id}")]
     public IActionResult ObterPorId(int id)
     {
-        var usuario = _usuarios.FirstOrDefault(u => u.Id == id);
+        Usuario? usuario = _usuarioService.ObterPorId(id);
 
-        if (usuario == null)
+        if (usuario is null)
             return NotFound(new { Mensagem = "Usuário não encontrado." });
 
         return Ok(new
@@ -148,14 +146,12 @@ public class UsuarioController : ControllerBase
     [HttpPut("{id}")]
     public IActionResult AtualizarUsuario(int id, [FromBody] AtualizarUsuarioRequest request)
     {
-        var usuario = _usuarios.FirstOrDefault(u => u.Id == id);
-        if (usuario == null)
-            return NotFound(new { Mensagem = "Usuário não encontrado." });
-
         try
         {
-            usuario.AtualizarNome(request.Nome);
-            usuario.AtualizarSalario(request.SalarioMensal);
+            Usuario? usuario = _usuarioService.AtualizarDados(id, request.Nome, request.SalarioMensal);
+
+            if (usuario is null)
+                return NotFound(new { Mensagem = "Usuário não encontrado." });
 
             return Ok(new
             {
@@ -175,8 +171,9 @@ public class UsuarioController : ControllerBase
     [HttpPut("{id}/salario")]
     public IActionResult AtualizarSalario(int id, [FromBody] AtualizarSalarioRequest request)
     {
-        var usuario = _usuarios.FirstOrDefault(u => u.Id == id);
-        if (usuario == null)
+        Usuario? usuario = _usuarioService.ObterPorId(id);
+
+        if (usuario is null)
             return NotFound(new { Mensagem = "Usuário não encontrado." });
 
         if (request.NovoSalario <= 0)
@@ -185,7 +182,8 @@ public class UsuarioController : ControllerBase
         try
         {
             decimal salarioAnterior = usuario.SalarioMensal;
-            usuario.AtualizarSalario(request.NovoSalario);
+
+            _usuarioService.AtualizarSalario(id, request.NovoSalario);
 
             return Ok(new
             {
@@ -204,13 +202,13 @@ public class UsuarioController : ControllerBase
     [HttpPut("{id}/senha")]
     public IActionResult AlterarSenha(int id, [FromBody] AlterarSenhaRequest request)
     {
-        var usuario = _usuarios.FirstOrDefault(u => u.Id == id);
-        if (usuario == null)
-            return NotFound(new { Mensagem = "Usuário não encontrado." });
-
         try
         {
-            usuario.AlterarSenha(request.SenhaAtual, request.NovaSenha);
+            Usuario? usuario = _usuarioService.AlterarSenha(id, request.SenhaAtual, request.NovaSenha);
+
+            if (usuario is null)
+                return NotFound(new { Mensagem = "Usuário não encontrado." });
+
             return Ok(new { Mensagem = "Senha alterada com sucesso!" });
         }
         catch (ArgumentException ex)
@@ -227,14 +225,12 @@ public class UsuarioController : ControllerBase
     [HttpDelete("{id}")]
     public IActionResult ExcluirUsuario(int id)
     {
-        var usuario = _usuarios.FirstOrDefault(u => u.Id == id);
+        Usuario? removido = _usuarioService.Excluir(id);
 
-        if (usuario == null)
+        if (removido is null)
             return NotFound(new { Mensagem = "Usuário não encontrado." });
 
-        _usuarios.Remove(usuario);
-
-        return Ok(new { Mensagem = $"Usuário '{usuario.Nome}' removido com sucesso!" });
+        return Ok(new { Mensagem = $"Usuário '{removido.Nome}' removido com sucesso!" });
     }
 
     #endregion
@@ -245,10 +241,9 @@ public class UsuarioController : ControllerBase
     [HttpPost("login")]
     public IActionResult Login([FromBody] LoginRequest request)
     {
-        var usuario = _usuarios.FirstOrDefault(u =>
-            u.Login.Equals(request.Login, StringComparison.OrdinalIgnoreCase));
+        Usuario? usuario = _usuarioService.Autenticar(request.Login, request.Senha);
 
-        if (usuario == null || !usuario.VerificarSenha(request.Senha))
+        if (usuario is null)
             return Unauthorized(new { Mensagem = "Login ou senha incorretos." });
 
         if (!usuario.ContaVerificada)
@@ -268,12 +263,10 @@ public class UsuarioController : ControllerBase
     [HttpPost("{id}/verificar")]
     public IActionResult VerificarConta(int id)
     {
-        var usuario = _usuarios.FirstOrDefault(u => u.Id == id);
+        Usuario? usuario = _usuarioService.VerificarConta(id);
 
-        if (usuario == null)
+        if (usuario is null)
             return NotFound(new { Mensagem = "Usuário não encontrado." });
-
-        usuario.VerificarConta();
 
         return Ok(new
         {

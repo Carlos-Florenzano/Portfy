@@ -1,17 +1,65 @@
-// O api.ts (localizado em frontend/src/services/api.ts) é a camada de abstração HTTP da aplicação.
-// Ele atua como o "ramal de comunicação" exclusivo entre a interface do React e a Web API em C#.
-
-
-// Importa a biblioteca Axios, que é o cliente HTTP responsável por enviar e receber dados pela rede usando
-// Promises do JavaScript (async/await ou .then()).
+// Ponto único de acesso HTTP: a instância axios e a tradução de erro vivem aqui, nunca nas telas.
 import axios from 'axios';
 
+const MENSAGEM_PADRAO = 'Não foi possível concluir a operação. Tente novamente.';
+const MENSAGEM_SEM_CONEXAO =
+    'Não foi possível conectar ao servidor. Verifique se a API está em execução.';
+
+// Erro já traduzido para exibição: a tela só lê a mensagem, nunca o corpo da resposta.
+export class ErroRequisicao extends Error {
+    constructor(mensagem: string) {
+        super(mensagem);
+        this.name = 'ErroRequisicao';
+    }
+}
+
+interface CorpoDeErro {
+    detail?: unknown;
+    mensagem?: unknown;
+    Mensagem?: unknown;
+}
+
+function extrairMensagemDoCorpo(corpo: unknown): string | null {
+    if (typeof corpo !== 'object' || corpo === null) {
+        return null;
+    }
+
+    const { detail, mensagem, Mensagem } = corpo as CorpoDeErro;
+
+    for (const candidata of [detail, mensagem, Mensagem]) {
+        if (typeof candidata === 'string' && candidata.trim().length > 0) {
+            return candidata;
+        }
+    }
+
+    return null;
+}
+
+function traduzirErro(erro: unknown): ErroRequisicao {
+    if (!axios.isAxiosError(erro)) {
+        return new ErroRequisicao(erro instanceof Error ? erro.message : MENSAGEM_PADRAO);
+    }
+
+    if (!erro.response) {
+        return new ErroRequisicao(MENSAGEM_SEM_CONEXAO);
+    }
+
+    return new ErroRequisicao(extrairMensagemDoCorpo(erro.response.data) ?? MENSAGEM_PADRAO);
+}
+
 // Instância apontando para a porta da API C# (.NET)
-// Em vez de chamar o axios de forma genérica em vários arquivos do projeto,
-// a função .create() instancia um cliente HTTP customizado e reutilizável.
-// A palavra-chave export expõe esse cliente configurado para o restante da aplicação.
-// Qualquer componente que precise buscar ou enviar dados para o backend só precisa fazer:
-// import { api } from '../services/api';
 export const api = axios.create({
-  baseURL: 'http://localhost:5000/api', // Define o endereço base onde a API em C# está rodando.
+    baseURL: 'http://localhost:5000/api',
 });
+
+// Interceptor de resposta: toda falha chega ao consumidor como ErroRequisicao,
+// com a mensagem do ProblemDetails (RFC 7807) ou do envelope legado já resolvida.
+api.interceptors.response.use(
+    (resposta) => resposta,
+    (erro: unknown) => Promise.reject(traduzirErro(erro)),
+);
+
+// Mensagem exibida em tela para qualquer erro que chegue ao catch de uma tela.
+export function mensagemDeErro(erro: unknown): string {
+    return erro instanceof ErroRequisicao ? erro.message : MENSAGEM_PADRAO;
+}

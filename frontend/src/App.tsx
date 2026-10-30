@@ -8,10 +8,20 @@ function App() {
         "login"
     );
 
+    // Aviso de sucesso que atravessa a troca de tela (ex.: cadastro -> login).
+    const [aviso, setAviso] = useState("");
+
     if (tela === "cadastro") {
         return (
             <Cadastro
-                onVoltar={() => setTela("login")}
+                onVoltar={() => {
+                    setAviso("");
+                    setTela("login");
+                }}
+                onCadastrado={(mensagem) => {
+                    setAviso(mensagem);
+                    setTela("login");
+                }}
             />
         );
     }
@@ -22,8 +32,15 @@ function App() {
 
     return (
         <Login
-            onLogin={() => setTela("dashboard")}
-            onCadastro={() => setTela("cadastro")}
+            aviso={aviso}
+            onLogin={() => {
+                setAviso("");
+                setTela("dashboard");
+            }}
+            onCadastro={() => {
+                setAviso("");
+                setTela("cadastro");
+            }}
         />
     );
 }

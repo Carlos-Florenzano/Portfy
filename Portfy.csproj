@@ -1,9 +1,12 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- A raiz do repositório é o projeto .NET: sem esta exclusão, tests/** e
+         frontend/node_modules/** entrariam na compilação da API (docs/arch.md §8.1). -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests/**;frontend/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
