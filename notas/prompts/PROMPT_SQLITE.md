@@ -24,7 +24,7 @@ Não presuma que propriedades, relacionamentos ou construtores existem sem verif
 
 Configure a persistência utilizando:
 
-- Entity Framework Core compatível com .NET 8.
+- Entity Framework Core compatível com .NET 10.
 - Provedor Microsoft.EntityFrameworkCore.Sqlite.
 - Banco de dados `portfy.db`.
 - String de conexão configurada em `appsettings.json`.
