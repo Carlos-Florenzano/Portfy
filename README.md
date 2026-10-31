@@ -19,7 +19,7 @@ O **Portfy** é um sistema em C# voltado para a gestão de orçamento pessoal e 
 
 ### 1. Justificativa de Engenharia de Software
 
-Adotou-se a **implementação incremental** para as funcionalidades, correções estruturais dentro do software em alguns pontos para a implementação do banco de dados SQLite, e ajustes finos com base em feedbacks presentes em /docs.
+Adotou-se a **implementação incremental** para as funcionalidades, correções estruturais dentro do software em alguns pontos para a implementação do banco de dados SQLite, e ajustes finos com base em feedbacks presentes em /notas.
 
 ---
 

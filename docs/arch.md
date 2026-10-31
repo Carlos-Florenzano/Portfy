@@ -26,15 +26,15 @@ Consequências práticas:
 
 | Documento | É autoridade sobre | Quando é obrigatório ler |
 |---|---|---|
-| `docs/funcionalidades.md` | **escopo funcional do MVP** (o *quê*) | antes de criar/alterar qualquer funcionalidade |
-| `docs/portfy_avaliacao_av1_professor_andre.md` | **critérios de qualidade OO avaliados** e causas raiz apontadas | antes de alterar domínio, camadas ou estrutura |
-| `docs/AVISOS.txt` | **procedimento operacional** de migrations EF | antes de mexer em schema |
+| `notas/sugestoes_mvp_portfy_temp_outubro_2026.md` | **escopo funcional do MVP** (o *quê*) | antes de criar/alterar qualquer funcionalidade |
+| `notas/portfy_avaliacao_av1_professor_andre.md` | **critérios de qualidade OO avaliados** e causas raiz apontadas | antes de alterar domínio, camadas ou estrutura |
+| `notas/AVISOS.txt` | **procedimento operacional** de migrations EF | antes de mexer em schema |
 | `README.md` | visão geral, integrantes, pendências declaradas | ao iniciar trabalho no repositório |
 | `docs/arch.md` (este) | **como** construir | sempre |
 
-Regra: se uma alteração contraria `funcionalidades.md`, ela está fora de escopo. Se contraria este documento, exige ADR.
+Regra: se uma alteração contraria `notas/sugestoes_mvp_portfy_temp_outubro_2026.md`, ela está fora de escopo. Se contraria este documento, exige ADR.
 
-### 2.2 Escopo funcional do MVP (`funcionalidades.md` §3) → módulo dono
+### 2.2 Escopo funcional do MVP (`notas/sugestoes_mvp_portfy_temp_outubro_2026.md` §3) → módulo dono
 
 | Funcionalidade | Módulo dono canônico | Estado atual | Delta arquitetural exigido |
 |---|---|---|---|
@@ -49,7 +49,7 @@ Regra: se uma alteração contraria `funcionalidades.md`, ela está fora de esco
 | Múltiplas simulações + seletor de perfil (§3.5) | `CarteiraSimulada` com `Id`, `UsuarioId`, `Nome` | **não existe** (hoje 1 carteira estática) | modelagem por usuário; remover singleton (§9) |
 | Clonagem de simulação (§3.5) | `Services/CarteiraService.ClonarAsync` | **inexistente** | cópia sem IDs, em transação única |
 
-### 2.3 Schema proposto em `funcionalidades.md` §2 → modelo canônico
+### 2.3 Schema proposto em `notas/sugestoes_mvp_portfy_temp_outubro_2026.md` §2 → modelo canônico
 
 | Proposta da spec | Modelo canônico | Observação |
 |---|---|---|
@@ -60,13 +60,13 @@ Regra: se uma alteração contraria `funcionalidades.md`, ela está fora de esco
 
 ### 2.4 Fora do escopo do MVP
 
-Cotação em tempo real por API externa, câmbio automático, histórico de preços, autenticação social/2FA, notificações, deploy e CI. Só entram com funcionalidade escrita em `funcionalidades.md`.
+Cotação em tempo real por API externa, câmbio automático, histórico de preços, autenticação social/2FA, notificações, deploy e CI. Só entram com funcionalidade escrita em `notas/sugestoes_mvp_portfy_temp_outubro_2026.md`.
 
 ---
 
 ## 3. Conformidade com a avaliação AV1
 
-A avaliação (`docs/portfy_avaliacao_av1_professor_andre.md`) é um **sinal de engenharia**, não um artefato decorativo: cada dimensão com nota baixa indica uma regra estrutural ausente. Nota final 6,92 (POO 6,45 · Frontend 8,00).
+A avaliação (`notas/portfy_avaliacao_av1_professor_andre.md`) é um **sinal de engenharia**, não um artefato decorativo: cada dimensão com nota baixa indica uma regra estrutural ausente. Nota final 6,92 (POO 6,45 · Frontend 8,00).
 
 ### 3.1 Dimensão → requisito arquitetural → gate
 
@@ -182,7 +182,7 @@ Versões verificadas nos arquivos do repositório. **Trocar qualquer item exige 
 
 ### 5.3 Regras de stack
 
-1. **Proibido** adicionar dependência que não seja exigida por funcionalidade já descrita em `docs/funcionalidades.md`. Gráficos (`Chart.js`/`Recharts`), router, state manager: só quando a feature existir, com ADR (§2.2 — gráfico de pizza é o primeiro candidato legítimo).
+1. **Proibido** adicionar dependência que não seja exigida por funcionalidade já descrita em `notas/sugestoes_mvp_portfy_temp_outubro_2026.md`. Gráficos (`Chart.js`/`Recharts`), router, state manager: só quando a feature existir, com ADR (§2.2 — gráfico de pizza é o primeiro candidato legítimo).
 2. **Proibido** `float`/`double` para dinheiro (§11, item 1).
 3. **Proibido** um segundo ORM, segundo cliente HTTP ou segundo framework CSS.
 4. Versões ficam fixadas no manifesto (`Portfy.csproj`, `package.json`). Sem `latest`.
@@ -442,7 +442,7 @@ Erro aqui é corrupção de dado; nenhuma destas regras é negociável.
 
 ## 12. Persistência
 
-Procedimento canônico (de `docs/AVISOS.txt`, alinhado a `Data/Migrations`):
+Procedimento canônico (de `notas/AVISOS.txt`, alinhado a `Data/Migrations`):
 
 ```
 dotnet tool install --global dotnet-ef              # uma vez por máquina
