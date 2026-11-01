@@ -5,6 +5,8 @@ bin/
 obj/
 .dscode/
 *.log
+/management/
+/docs/management/
 
 # Banco local do SQLite (criado por migration; nunca versionado)
 *.db

@@ -5,3 +5,8 @@
 # 2 - dotnet ef migrations add InitialCreate -o Data/Migrations - Ele cria a migração inicial, este comando lê as classes da pasta Models e gera o script de criação dentro da pasta Data/Migrations:
 
 # 3 - dotnet ef database update - Ele executa a migração para criar o ficheiro SQLite
+
+# 4 - Rever o Posicao.cs e o Posicao no banco de dados (ver se ele vai pertencer ou ser removido do programa)
+
+# 5 - Criar os documentos diagrama-classe-candidatas.md (Falar sobre suas funcionalidades do projeto e pedir por novas
+Criar uma lista com todas as classes e ver com a IA o que precisa a mais) e o diagrama.md (mermaid) na pasta docs.
