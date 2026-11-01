@@ -1,140 +1,129 @@
+using Microsoft.EntityFrameworkCore;
+using Portfy.Data;
 using Portfy.Models;
 using Portfy.Services.Contracts;
 
 namespace Portfy.Services;
 
-/// CRUD e autenticação de usuários sobre uma coleção em memória.
-/// Registrado como Singleton porque o estado ainda não vive no SQLite (dívida P0-a);
-/// o lock protege a coleção, que é compartilhada entre requisições concorrentes.
+/// CRUD e autenticação de usuários sobre o SQLite via AppDbContext, dono único
+/// do estado (arch §9). Registrado como Scoped: a instância acompanha a requisição
+/// e o DbContext é descartado no fim dela.
+///
+/// As operações são síncronas porque o contrato público (IUsuarioService e as
+/// actions dos controllers) é síncrono e é preservado como requisito: a suíte de
+/// 61 testes chama estes métodos diretamente, e tornar tudo assíncrono exigiria
+/// alterar controller, contrato e testes de uma só vez.
 public sealed class UsuarioService : IUsuarioService
 {
-    private readonly object _lock = new();
-    private readonly List<Usuario> _usuarios = [];
-    private int _proximoId = 1;
+    private readonly AppDbContext _db;
 
-    public bool LoginJaExiste(string login)
+    public UsuarioService(AppDbContext db)
     {
-        lock (_lock)
-        {
-            return _usuarios.Any(u => u.Login.Equals(login, StringComparison.OrdinalIgnoreCase));
-        }
+        _db = db ?? throw new ArgumentNullException(nameof(db));
     }
+
+    // Seam da suíte de testes: mesmo serviço, banco SQLite em memória isolado
+    // (sem arquivo físico e sem coleção C# paralela).
+    public UsuarioService() : this(AppDbContextEmMemoria.Criar())
+    {
+    }
+
+    public bool LoginJaExiste(string login) => _db.Usuarios.Any(u => u.Login == login);
 
     public Usuario Cadastrar(string nome, decimal salarioMensal, string login, string senha)
     {
-        lock (_lock)
-        {
-            var usuario = new Usuario(_proximoId, nome, salarioMensal, DateTime.Now, login, senha);
+        // Id 0 = sem identidade: a chave é gerada pelo banco (arch §9.4).
+        var usuario = new Usuario(nome, salarioMensal, login, senha);
 
-            _usuarios.Add(usuario);
-            _proximoId++;
+        _db.Usuarios.Add(usuario);
+        _db.SaveChanges();
 
-            return usuario;
-        }
+        return usuario;
     }
 
-    public IReadOnlyCollection<Usuario> ObterTodos()
-    {
-        lock (_lock)
-        {
-            return _usuarios.ToArray();
-        }
-    }
+    public IReadOnlyCollection<Usuario> ObterTodos() =>
+        _db.Usuarios.AsNoTracking().ToList();
 
-    public Usuario? ObterPorId(int id)
-    {
-        lock (_lock)
-        {
-            return Localizar(id);
-        }
-    }
+    public Usuario? ObterPorId(int id) => _db.Usuarios.Find(id);
 
     public Usuario? AtualizarDados(int id, string nome, decimal salarioMensal)
     {
-        lock (_lock)
-        {
-            Usuario? usuario = Localizar(id);
+        Usuario? usuario = _db.Usuarios.Find(id);
 
-            if (usuario is null)
-                return null;
+        if (usuario is null)
+            return null;
 
-            usuario.AtualizarNome(nome);
-            usuario.AtualizarSalario(salarioMensal);
+        // O domínio valida e altera; a persistência só confirma o estado final.
+        usuario.AtualizarNome(nome);
+        usuario.AtualizarSalario(salarioMensal);
 
-            return usuario;
-        }
+        _db.SaveChanges();
+
+        return usuario;
     }
 
     public Usuario? AtualizarSalario(int id, decimal novoSalario)
     {
-        lock (_lock)
-        {
-            Usuario? usuario = Localizar(id);
+        Usuario? usuario = _db.Usuarios.Find(id);
 
-            if (usuario is null)
-                return null;
+        if (usuario is null)
+            return null;
 
-            usuario.AtualizarSalario(novoSalario);
+        usuario.AtualizarSalario(novoSalario);
 
-            return usuario;
-        }
+        _db.SaveChanges();
+
+        return usuario;
     }
 
     public Usuario? AlterarSenha(int id, string senhaAtual, string novaSenha)
     {
-        lock (_lock)
-        {
-            Usuario? usuario = Localizar(id);
+        Usuario? usuario = _db.Usuarios.Find(id);
 
-            if (usuario is null)
-                return null;
+        if (usuario is null)
+            return null;
 
-            usuario.AlterarSenha(senhaAtual, novaSenha);
+        usuario.AlterarSenha(senhaAtual, novaSenha);
 
-            return usuario;
-        }
+        _db.SaveChanges();
+
+        return usuario;
     }
 
     public Usuario? Excluir(int id)
     {
-        lock (_lock)
-        {
-            Usuario? usuario = Localizar(id);
+        Usuario? usuario = _db.Usuarios.Find(id);
 
-            if (usuario is null)
-                return null;
+        if (usuario is null)
+            return null;
 
-            _usuarios.Remove(usuario);
+        _db.Usuarios.Remove(usuario);
+        _db.SaveChanges();
 
-            return usuario;
-        }
+        return usuario;
     }
 
     public Usuario? Autenticar(string login, string senha)
     {
-        lock (_lock)
-        {
-            Usuario? usuario = _usuarios.FirstOrDefault(u =>
-                u.Login.Equals(login, StringComparison.OrdinalIgnoreCase));
+        // Comparação do login é feita no SQL com COLLATE NOCASE (ver UsuarioConfiguration).
+        Usuario? usuario = _db.Usuarios
+            .AsNoTracking()
+            .FirstOrDefault(u => u.Login == login);
 
-            return usuario is not null && usuario.VerificarSenha(senha) ? usuario : null;
-        }
+        return usuario is not null && usuario.VerificarSenha(senha) ? usuario : null;
     }
 
     public Usuario? VerificarConta(int id)
     {
-        lock (_lock)
-        {
-            Usuario? usuario = Localizar(id);
+        Usuario? usuario = _db.Usuarios.Find(id);
 
-            if (usuario is null)
-                return null;
+        if (usuario is null)
+            return null;
 
-            usuario.VerificarConta();
+        usuario.VerificarConta();
 
-            return usuario;
-        }
+        _db.SaveChanges();
+
+        return usuario;
     }
-
-    private Usuario? Localizar(int id) => _usuarios.FirstOrDefault(u => u.Id == id);
 }

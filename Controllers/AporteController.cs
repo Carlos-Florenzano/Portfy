@@ -34,12 +34,21 @@ public class AporteController : ControllerBase
         if (request.OrigemSalarioId <= 0)
             return BadRequest(new { Mensagem = "O ID da origem do salário deve ser um número positivo." });
 
-        var novoAporte = _aporteService.Criar(request.Valor, request.OrigemSalarioId);
-
-        return Ok(new
+        try
         {
-            Mensagem = "Aporte realizado com sucesso!",
-            Aporte = novoAporte
-        });
+            var novoAporte = _aporteService.Criar(request.Valor, request.OrigemSalarioId);
+
+            return Ok(new
+            {
+                Mensagem = "Aporte realizado com sucesso!",
+                Aporte = novoAporte
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            // Origem do salário inexistente: a integridade referencial do banco
+            // é validada no serviço, que devolve erro de domínio em vez de 500.
+            return BadRequest(new { Mensagem = ex.Message });
+        }
     }
 }

@@ -2,10 +2,15 @@ namespace Portfy.Models;
 
 public class Etf : Ativo
 {
-    public string IndiceReferencia { get; private set; }
+    public string IndiceReferencia { get; private set; } = string.Empty;
     public decimal TaxaAdministracaoAnual { get; private set; }
 
     public override TipoAtivo Tipo => TipoAtivo.Etf;
+
+    // Construtor exigido pelo EF Core para materializar um ETF já persistido (TPH).
+    protected Etf()
+    {
+    }
 
     public Etf(string ticker, string nome, decimal precoInicial, string indiceReferencia, decimal taxaAdministracaoAnual)
         : base(ticker, nome, precoInicial)

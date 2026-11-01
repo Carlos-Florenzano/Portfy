@@ -6,9 +6,16 @@ public class AporteSimulado
     public decimal ValorAportado { get; private set; }
     public int OrigemSalarioId { get; private set; }
 
+    // Construtor exigido pelo EF Core (arch §13.1) para materializar um aporte persistido.
+    protected AporteSimulado()
+    {
+    }
+
+    /// Cria um aporte informado pelo domínio. Id 0 significa "ainda sem identidade":
+    /// a chave é gerada pelo banco (arch §9.4), no mesmo padrão já usado em Usuario.
     public AporteSimulado(int id, decimal valorAportado, int origemSalarioId, DateTime? dataAporte = null)
     {
-        if (id <= 0)
+        if (id < 0)
             throw new ArgumentException("O ID deve ser positivo.", nameof(id));
 
         if (valorAportado <= 0)

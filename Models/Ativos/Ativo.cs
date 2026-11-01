@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Portfy.Models;
 
 /// Classe base abstrata para todos os ativos negociáveis
@@ -5,11 +7,25 @@ public abstract class Ativo
 { // Aqui há o protected set para conceder flexibilidade para que uma subclasse específica ajuste internamente
 //  o estado herdado caso uma regra de negócio particular exija isso, mantendo o dado blindado contra alterações
 //  externas descontroladas.
+
+    // Chave primária gerada pelo banco (arch §9.4). Fica fora do JSON para preservar
+    // exatamente o contrato HTTP atual de api/ativo e de api/carteira.
+    [JsonIgnore]
+    public int Id { get; private set; }
+
     public string Ticker { get; protected set; }
     public string Nome { get; protected set; }
     public decimal PrecoAtual { get; protected set; }
     public decimal RentabilidadeAcumulada { get; protected set; }
     public abstract TipoAtivo Tipo { get; }
+
+    // Construtor exigido pelo EF Core (arch §13.1): materializa uma linha já persistida
+    // sem passar pelas validações do construtor de domínio. Apenas o EF usa este caminho.
+    protected Ativo()
+    {
+        Ticker = string.Empty;
+        Nome = string.Empty;
+    }
 
     protected Ativo(string ticker, string nome, decimal precoInicial)
     {

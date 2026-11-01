@@ -6,6 +6,11 @@ public class FundoImobiliario : Ativo
 
     public override TipoAtivo Tipo => TipoAtivo.Fii;
 
+    // Construtor exigido pelo EF Core para materializar um FII já persistido (TPH).
+    protected FundoImobiliario()
+    {
+    }
+
     public FundoImobiliario(string ticker, string nome, decimal precoInicial, decimal rendimentoMensalPorCota)
         : base(ticker, nome, precoInicial)
     {

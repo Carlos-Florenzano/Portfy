@@ -6,6 +6,11 @@ public class Cripto : Ativo
 
     public override TipoAtivo Tipo => TipoAtivo.Cripto;
 
+    // Construtor exigido pelo EF Core para materializar uma cripto já persistida (TPH).
+    protected Cripto()
+    {
+    }
+
     public Cripto(string ticker, string nome, decimal precoInicial, decimal taxaStakingAnual = 0m)
         : base(ticker, nome, precoInicial)
     {

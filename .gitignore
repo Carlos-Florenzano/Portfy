@@ -5,3 +5,9 @@ bin/
 obj/
 .dscode/
 *.log
+
+# Banco local do SQLite (criado por migration; nunca versionado)
+*.db
+*.db-shm
+*.db-wal
+*AGENTS.md

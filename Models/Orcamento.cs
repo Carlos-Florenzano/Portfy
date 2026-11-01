@@ -1,9 +1,16 @@
+using System.Text.Json.Serialization;
+
 namespace Portfy.Models;
 // Pelo que eu verifiquei, não precisou mudar.
 public class Orcamento
 {
+    // Chave primária gerada pelo banco (arch §9.4). Fora do JSON para preservar
+    // exatamente o contrato HTTP atual de api/orcamento.
+    [JsonIgnore]
+    public int Id { get; private set; }
+
     // Nome da categoria de gasto (ex: Alimentação, Transporte, Lazer, Moradia).
-    public string NomeCategoria { get; private set; }
+    public string NomeCategoria { get; private set; } = string.Empty;
 
     // Valor máximo definido para aquela categoria de gasto.
     public decimal LimiteDefinido { get; private set; }
@@ -13,6 +20,11 @@ public class Orcamento
 
     // Porcentagem do salário mensal destinada à categoria.
     public decimal PercentualDoSalario { get; private set; }
+
+    // Construtor exigido pelo EF Core (arch §13.1); o domínio usa o construtor validado.
+    protected Orcamento()
+    {
+    }
 
     // Construtor responsável por criar um orçamento com categoria, limite e percentual definidos.
     public Orcamento(string nomeCategoria, decimal limiteDefinido, decimal percentualDoSalario)

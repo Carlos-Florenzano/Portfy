@@ -1,8 +1,15 @@
+using System.Text.Json.Serialization;
+
 namespace Portfy.Models;
 public class CarteiraSimulada
 {
     // Objeto de sincronização para garantir Thread Safety em ambientes multithread
     private readonly object _lock = new();
+
+    // Chave primária gerada pelo banco (arch §9.4). Fora do JSON para preservar
+    // exatamente o contrato HTTP atual de GET api/carteira.
+    [JsonIgnore]
+    public int Id { get; private set; }
 
     // Propriedades com private set para integridade dos dados
     public decimal SaldoDisponivel { get; private set; }
@@ -138,9 +145,20 @@ public class CarteiraSimulada
 // Classe Posicao imutável e protegida
 public class Posicao
 {
-    public Ativo Ativo { get; private set; }
+    // Chave primária gerada pelo banco (arch §9.4). Fora do JSON para preservar
+    // exatamente o contrato HTTP atual de GET api/carteira.
+    [JsonIgnore]
+    public int Id { get; private set; }
+
+    // Preenchido pelo EF Core; a posição só existe associada a um ativo persistido.
+    public Ativo Ativo { get; private set; } = null!;
     public int Quantidade { get; private set; }
     public decimal PrecoMedio { get; private set; }
+
+    // Construtor exigido pelo EF Core (arch §13.1); o domínio usa o construtor validado.
+    protected Posicao()
+    {
+    }
 
     public Posicao(Ativo ativo, int quantidade, decimal precoMedio)
     {

@@ -1,16 +1,38 @@
+using Microsoft.EntityFrameworkCore;
+using Portfy.Data;
+using Portfy.Data.Seed;
 using Portfy.Models;
 using Portfy.Services.Contracts;
 
 namespace Portfy.Services;
 
-/// Fonte única do estado da carteira dentro do processo. A instância vive no container
-/// de DI (Singleton) enquanto a persistência em SQLite não entra (dívida P0-a);
-/// quando o AppDbContext assumir, esta classe passa a ser Scoped e o saldo sai da memória.
+/// Carteira persistida no SQLite (arch §9). A carteira padrão e o seu saldo inicial
+/// vêm do seed da migration; a partir daí o saldo e as posições só mudam pelos
+/// métodos de domínio de CarteiraSimulada, com o resultado gravado por SaveChanges.
+/// Registrado como Scoped porque depende do AppDbContext.
 public sealed class CarteiraService : ICarteiraService
 {
-    private const decimal SaldoInicialPadrao = 10000m;
+    private readonly AppDbContext _db;
 
-    private readonly CarteiraSimulada _carteira = new(SaldoInicialPadrao);
+    public CarteiraService(AppDbContext db)
+    {
+        _db = db ?? throw new ArgumentNullException(nameof(db));
+    }
 
-    public CarteiraSimulada ObterCarteira() => _carteira;
+    // Seam da suíte de testes: banco SQLite em memória isolado, mesmo caminho de persistência.
+    public CarteiraService() : this(AppDbContextEmMemoria.Criar())
+    {
+    }
+
+    public CarteiraSimulada ObterCarteira() =>
+        _db.CarteirasSimuladas
+            // Duas coleções carregadas: consultas separadas evitam o join cartesiano
+            // (posições x aportes) que o provedor relacional alerta por padrão.
+            .AsSplitQuery()
+            .Include(c => c.Posicoes)
+                .ThenInclude(p => p.Ativo)
+            .Include(c => c.Aportes)
+            .FirstOrDefault(c => c.Id == SeedInicial.CarteiraPadraoId)
+        ?? throw new InvalidOperationException(
+            "A carteira padrão não foi inicializada. Verifique se as migrations foram aplicadas.");
 }
