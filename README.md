@@ -74,3 +74,18 @@ Arquivos renomeados nesta data:
 | `notas/relatorios_prompt/Relatório_SQLite_Portfy01` (sem extensão) | `notas/relatorios_prompt/2026-10-31_relatorio_sqlite_sergio-lucas-gomes_01.md` |
 
 O conteúdo dos dois arquivos não foi alterado: os hashes são idênticos aos do commit anterior, apenas os nomes mudaram.
+
+---
+
+### 5. Adoção do DeepSeek v4 Flash com DsCode no fluxo de trabalho (29/10/2026)
+
+Em **29/10/2026** começou o uso da **API do DeepSeek v4 Flash** integrada ao **DsCode** como parte do fluxo de desenvolvimento do Portfy.
+
+| Item | Descrição |
+|---|---|
+| Data de início | 29/10/2026 |
+| Ferramenta | DsCode (agente de linha de comando) |
+| Modelo | DeepSeek v4 Flash, via API |
+| Objetivo | Melhorar o fluxo de trabalho e, consequentemente, aumentar a produtividade do grupo |
+
+Esta é uma mudança de **processo**, não de produto: nenhum comportamento, contrato de API ou regra de negócio do Portfy foi alterado pela adoção da ferramenta. Os artefatos produzidos nesse fluxo continuam registrados em `notas/` (ver item 4) e as decisões técnicas continuam em `docs/arch.md`.
