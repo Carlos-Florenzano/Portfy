@@ -46,3 +46,31 @@ Adotou-se a **implementação incremental** para as funcionalidades, correções
 | `UI/Dashboard.cs` órfão | Já removido em `cbe4c05`. |
 
 Gates executados em 30/10/2026: `dotnet build Portfy.csproj` (0 erros, 0 warnings), `dotnet test tests/Portfy.Tests` (61/61), `cd frontend && npm run build && npm run lint` (ambos verdes), `grep -rn "alert(" frontend/src` e `grep -rn "private static" Controllers Services` (vazios).
+
+---
+
+### 4. Padronização de nomeação de documentos em `notas/` (31/10/2026)
+
+Em **31/10/2026** foi aplicada uma padronização de nomeação aos documentos de `notas/prompts/` e `notas/relatorios_prompt/`. O padrão vale para **todo arquivo novo** adicionado nesses dois diretórios (os demais subdiretórios de `notas/` — `etc/` e `importante/` — não foram alcançados por esta regra):
+
+```text
+AAAA-MM-DD_<tipo>_<assunto>_<autor>_<NN>.md
+```
+
+| Campo | Regra |
+|---|---|
+| `AAAA-MM-DD` | Data de criação do documento em ISO 8601 (ex.: `2026-10-31`). Mantém a ordenação alfabética do diretório em ordem cronológica. |
+| `<tipo>` | `prompt` em `notas/prompts/`; `relatorio` em `notas/relatorios_prompt/`. Repetir o tipo no nome mantém o arquivo identificável fora do seu diretório. |
+| `<assunto>` | Slug curto do tema: minúsculo, sem acentos e sem espaços, palavras unidas por `-` (ex.: `sqlite`). |
+| `<autor>` | Slug do nome completo do autor, minúsculo e sem acentos, conforme a seção "Integrantes do Grupo" (ex.: `sergio-lucas-gomes`). |
+| `<NN>` | Sequencial de dois dígitos reiniciado a cada combinação data + tipo + assunto + autor, começando em `01`. É o que permite **vários documentos por dia** e **vários relatórios para o mesmo prompt** sem colisão de nome. |
+| `.md` | Extensão sempre presente. |
+
+Arquivos renomeados nesta data:
+
+| Nome anterior | Nome novo |
+|---|---|
+| `notas/prompts/PROMPT_SQLITE.md` | `notas/prompts/2026-10-31_prompt_sqlite_sergio-lucas-gomes_01.md` |
+| `notas/relatorios_prompt/Relatório_SQLite_Portfy01` (sem extensão) | `notas/relatorios_prompt/2026-10-31_relatorio_sqlite_sergio-lucas-gomes_01.md` |
+
+O conteúdo dos dois arquivos não foi alterado: os hashes são idênticos aos do commit anterior, apenas os nomes mudaram.
