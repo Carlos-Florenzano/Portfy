@@ -21,6 +21,8 @@ Diagramas em [Mermaid](https://mermaid.js.org/) do sistema **como ele está hoje
 
 Nomes de classe, rota e tabela aparecem **exatamente** como no código, inclusive a inconsistência de caixa entre rota (`api/Carteira`) e chamada do SPA (`/carteira`) — ver §11, item 5.
 
+Antes de editar qualquer bloco, leia **§12.1 (subconjunto seguro de Mermaid)**: um `;` ou uma chave no texto derruba o render no GitHub.
+
 ---
 
 ## 2. Arquitetura em camadas
@@ -168,21 +170,21 @@ Observações verificadas no mapeamento:
 ```mermaid
 sequenceDiagram
     autonumber
-    participant SPA as SPA (axios)
-    participant C as CarteiraController
-    participant S as CarteiraService
-    participant DB as AppDbContext
-    participant SQ as SQLite
+    participant SPA as "SPA React"
+    participant C as "CarteiraController"
+    participant S as "CarteiraService"
+    participant DB as "AppDbContext"
+    participant SQ as "SQLite"
 
-    SPA->>C: GET /api/carteira
-    C->>S: ObterCarteira()
-    S->>DB: CarteirasSimuladas<br/>.AsSplitQuery()<br/>.Include(Posicoes).ThenInclude(Ativo)<br/>.Include(Aportes)
-    DB->>SQ: 3 SELECTs (evita join cartesiano)
+    SPA->>C: GET api/carteira
+    C->>S: ObterCarteira
+    S->>DB: consulta a carteira padrao com posicoes e aportes
+    DB->>SQ: 3 SELECTs, um por colecao, para evitar join cartesiano
     SQ-->>DB: linhas
-    DB-->>S: CarteiraSimulada (Id = CarteiraPadraoId)
+    DB-->>S: CarteiraSimulada do seed
     S-->>C: carteira
-    C-->>SPA: 200 { patrimonioTotal, saldoDisponivel, posicoes, aportes }
-    Note over C: se a carteira padrão não existir:<br/>InvalidOperationException → 500 hoje<br/>(sem middleware de erro, arch.md §14.2)
+    C-->>SPA: 200 com patrimonioTotal, saldoDisponivel, posicoes e aportes
+    Note over C: carteira padrao ausente gera InvalidOperationException<br/>e hoje responde 500, sem middleware de erro
 ```
 
 ---
@@ -194,32 +196,33 @@ Fluxo que mais exercita as regras: borda escolhe o percentual, domínio calcula 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant SPA as SPA (axios)
-    participant C as AtivoController
-    participant S as AtivoService
-    participant G as IGeradorDeVariacao
-    participant A as Ativo (domínio)
-    participant DB as AppDbContext
+    participant SPA as "SPA React"
+    participant C as "AtivoController"
+    participant S as "AtivoService"
+    participant G as "IGeradorDeVariacao"
+    participant A as "Ativo (dominio)"
+    participant DB as "AppDbContext"
 
-    SPA->>C: POST /api/Ativo/PETR4/simular { percentualCustomizado? }
-    C->>S: SimularVariacao(ticker, percentual?)
-    S->>DB: FirstOrDefault(Ticker == ticker)
-    DB-->>S: Ativo ou null
+    SPA->>C: POST api/Ativo/PETR4/simular
+    Note right of SPA: corpo opcional com percentualCustomizado
+    C->>S: SimularVariacao com ticker e percentual opcional
+    S->>DB: busca o ativo pelo ticker
+    DB-->>S: ativo ou null
 
     alt ativo inexistente
         S-->>C: null
-        C-->>SPA: 404 { Mensagem }
+        C-->>SPA: 404 com mensagem de ticker nao encontrado
     else ativo encontrado
-        S->>G: SortearPercentual(-5, +5)
-        G-->>S: percentual
-        S->>A: AtualizarPreco(preço * (1 + p/100))
+        S->>G: SortearPercentual entre -5 e 5
+        G-->>S: percentual sorteado
+        S->>A: AtualizarPreco com o novo preco calculado
         A-->>S: PrecoAtual e RentabilidadeAcumulada recalculados
-        S->>DB: SaveChanges()
-        S-->>C: VariacaoSimulada(ativo, precoAnterior)
-        C-->>SPA: 200 { mensagem, precoAnterior, novoPreco, rentabilidadeAcumulada }
+        S->>DB: SaveChanges
+        S-->>C: VariacaoSimulada com ativo e precoAnterior
+        C-->>SPA: 200 com mensagem, precoAnterior e novoPreco
     end
 
-    Note over A: o domínio só recebe um preço determinístico;<br/>a aleatoriedade mora na borda (arch.md §11, item 6)
+    Note over A: o dominio so recebe um preco deterministico<br/>a aleatoriedade mora na borda, arch.md 11, item 6
 ```
 
 ---
@@ -231,32 +234,32 @@ Este diagrama existe para tornar visível uma limitação real: **o aporte é pe
 ```mermaid
 sequenceDiagram
     autonumber
-    participant SPA as SPA (axios)
-    participant C as AporteController
-    participant S as AporteService
-    participant DB as AppDbContext
+    participant SPA as "SPA React"
+    participant C as "AporteController"
+    participant S as "AporteService"
+    participant DB as "AppDbContext"
 
-    SPA->>C: POST /api/aporte { valor, origemSalarioId }
-    C->>C: valida valor > 0 e origemSalarioId > 0
+    SPA->>C: POST api/aporte com valor e origemSalarioId
+    C->>C: valida valor positivo e origemSalarioId valido
 
-    alt payload inválido
-        C-->>SPA: 400 { Mensagem }
+    alt payload invalido
+        C-->>SPA: 400 com mensagem
     end
 
-    C->>S: Criar(valor, origemSalarioId)
-    S->>DB: Usuarios.Any(u => u.Id == origemSalarioId)
+    C->>S: Criar com valor e origemSalarioId
+    S->>DB: verifica se o usuario de origem existe
 
-    alt usuário inexistente
+    alt usuario inexistente
         S-->>C: ArgumentException
-        C-->>SPA: 400 { Mensagem }
-    else usuário existe
-        S->>DB: AportesSimulados.Add(new AporteSimulado(0, ...))
-        S->>DB: SaveChanges()
-        S-->>C: aporte
-        C-->>SPA: 200 { mensagem, aporte }
+        C-->>SPA: 400 com mensagem
+    else usuario existe
+        S->>DB: insere o aporte
+        S->>DB: SaveChanges
+        S-->>C: aporte persistido
+        C-->>SPA: 200 com mensagem e aporte
     end
 
-    Note over S,DB: AporteService nunca chama CarteiraSimulada.AdicionarAporte.<br/>SaldoDisponivel não muda por este endpoint.
+    Note over S,DB: AporteService nunca chama CarteiraSimulada.AdicionarAporte<br/>SaldoDisponivel nao muda por este endpoint
 ```
 
 ---
@@ -266,26 +269,26 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant U as Usuário
-    participant CAD as Cadastro.tsx
-    participant API as UsuarioController
-    participant S as UsuarioService
-    participant DB as AppDbContext
+    participant U as "Usuario"
+    participant CAD as "Cadastro.tsx"
+    participant API as "UsuarioController"
+    participant S as "UsuarioService"
+    participant DB as "AppDbContext"
 
-    U->>CAD: preenche nome, login, senha, salário
-    CAD->>API: POST /api/Usuario/cadastro
-    API->>S: LoginJaExiste(login)?
+    U->>CAD: preenche nome, login, senha e salario
+    CAD->>API: POST api/Usuario/cadastro
+    API->>S: LoginJaExiste
     alt login duplicado
         S-->>API: true
-        API-->>CAD: 409 { Mensagem }
+        API-->>CAD: 409 com mensagem
     else login livre
-        API->>S: Cadastrar(...)
-        S->>DB: Usuarios.Add(usuario com SenhaHash PBKDF2)
-        S->>DB: SaveChanges()
-        API-->>CAD: 201 { mensagem, id, nome, login, contaVerificada }
-        CAD->>API: POST /api/Usuario/{id}/verificar
-        API->>S: VerificarConta(id)
-        API-->>CAD: 200 { mensagem, id, contaVerificada: true }
+        API->>S: Cadastrar
+        S->>DB: insere usuario com SenhaHash PBKDF2
+        S->>DB: SaveChanges
+        API-->>CAD: 201 com id, nome, login e contaVerificada
+        CAD->>API: POST api/Usuario/id/verificar
+        API->>S: VerificarConta
+        API-->>CAD: 200 com contaVerificada true
         CAD->>U: volta ao login com aviso de sucesso
     end
 ```
@@ -357,3 +360,21 @@ Lacunas que ficam visíveis ao desenhar o sistema:
 3. Nova tela ou transição → §9.
 4. Mudou o registro de DI em `Program.cs` → §3.
 5. Diagrama que deixou de corresponder ao código é **defeito**, não ilustração: corrigir no mesmo commit da mudança. Quando a mudança for de regra (e não de desenho), a autoridade continua sendo `docs/arch.md`.
+6. **Subconjunto seguro de Mermaid** (obrigatório, ver §12.1): o diagrama precisa renderizar no GitHub, não apenas no editor local.
+
+### 12.1 Subconjunto seguro de Mermaid
+
+O GitHub mostra **"Unable to render rich display"** quando o parser quebra. As regras abaixo evitam a classe inteira de erro, não só o caso já ocorrido:
+
+| Proibido dentro do bloco | Por quê | Use |
+|---|---|---|
+| `;` no texto de mensagem, nota ou aresta | em `sequenceDiagram` o ponto e vírgula é **separador de instrução**; no meio do texto o parse falha | vírgula, ponto ou uma segunda `Note` |
+| `{ }` no texto | é sintaxe de bloco em `flowchart`/`erDiagram` e confunde o lexer em mensagens | descreva o corpo em palavras: "200 com mensagem e aporte" |
+| `<` `>` crus no texto | o renderer tenta interpretar como HTML | "maior que zero" |
+| `<br/>` em **mensagem** de sequência | só é garantido em `Note` | quebre em duas mensagens ou use `Note` |
+| `%`, `*`, `#` no texto | `#` é comentário e `%`/`*` colidem com sintaxe de outras diretivas | escreva por extenso |
+| `participant X as Alias (com espaços e parênteses)` sem aspas | o alias é lido até o fim da linha e caracteres estruturais quebram | `participant X as "Alias simples"` |
+
+Regra de ouro: **se o texto precisa de símbolo de código, ele não pertence ao diagrama** — vai na prosa logo abaixo, onde Markdown é livre.
+
+Este documento já sofreu esse defeito uma vez: o `;` de `"determinístico; ..."` na nota do §6 derrubou o render. O diagrama certo é o que abre no GitHub, e isso não é verificável por leitura — só por abrir a página.
