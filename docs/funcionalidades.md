@@ -4,15 +4,15 @@ Inventário funcional **derivado do código-fonte**, não do que se pretende con
 
 | Item | Valor |
 |---|---|
-| Base de referência | `main` @ `11c5bf4` (2026-10-31) |
-| Última verificação | `dotnet test tests/Portfy.Tests` → **61/61 aprovados**; `dotnet build Portfy.csproj` → 0 erros, 0 warnings |
+| Base de referência | `main` @ `34f2657` (2026-11-01), depois do merge do SQLite/EF Core |
+| Última verificação | `dotnet test tests/Portfy.Tests` → **66/66 aprovados**; `dotnet build Portfy.csproj` → 0 erros, 0 warnings; `cd frontend && npm run build && npm run lint` → verdes |
 | Escopo | API ASP.NET Core (`Controllers/`, `Services/`, `Models/`, `Data/`) + SPA React (`frontend/src/`) |
 | Não coberto | `frontend/node_modules`, `bin/`, `obj/`, `docs/`, `notas/` |
 
 ## 0. Relação com os outros documentos
 
 - `docs/arch.md` — autoridade sobre **como** construir (camadas, gates, ADRs).
-- `notas/sugestoes_mvp_portfy_temp_outubro_2026.md` — autoridade sobre o **escopo funcional pretendido** do MVP (papel definido em `docs/arch.md`, §2.1).
+- `notas/importante/sugestoes_mvp_portfy_temp_outubro_2026.md` — autoridade sobre o **escopo funcional pretendido** do MVP (papel definido em `docs/arch.md`, §2.1). Outros documentos de apoio: `notas/importante/portfy_avaliacao_av1_professor_andre.md` (critérios de qualidade OO) e `notas/etc/AVISOS.txt` (procedimento de migration).
 - **Este documento** — autoridade sobre **o que o código entrega hoje**, classe por classe.
 
 Regra: se o código e este documento divergirem, o código vence e este documento deve ser corrigido na mesma alteração. Este documento e as notas não competem: um descreve o presente, o outro o alvo.
@@ -27,7 +27,7 @@ Regra: se o código e este documento divergirem, o código vence e este document
 | **Órfã** | A classe existe e compila, nenhum consumidor a referencia. |
 | **Ausente** | Não existe no código. |
 
-Nenhuma funcionalidade do Portfy hoje tem estado **Completa** no sentido de persistência: todo estado vive em memória (`Program.cs` registra os seis serviços como `Singleton`) e é perdido ao reiniciar o processo.
+O estado é persistido em SQLite: `AppDbContext` é registrado como `Scoped`, os cinco serviços o recebem por construtor e cada escrita passa por `SaveChanges`; só `IGeradorDeVariacao` é `Singleton`. O critério **Completa** abaixo mede domínio + endpoint + tela + teste — não persistência, que já é única e está descrita em §9.
 
 ## 2. Visão geral: domínio → classes
 
@@ -39,15 +39,17 @@ Nenhuma funcionalidade do Portfy hoje tem estado **Completa** no sentido de pers
 | Catálogo de ativos | `Ativo`, `Acao`, `FundoImobiliario`, `Cripto`, `Etf`, `RendaFixa`, `TipoAtivo` | `AtivoService` + `GeradorDeVariacaoAleatoria` | `AtivoController` | **nenhuma** (`components/Ativos.tsx` existe mas não é importado) |
 | Orçamento | `Orcamento` | `OrcamentoService` | `OrcamentoController` | **nenhuma** |
 | Relatório consolidado | — | `RelatorioFinanceiro` | — | **nenhuma** |
-| Persistência | `AppDbContext` | — | — | — |
+| Persistência | `AppDbContext` | 5 serviços `Scoped` | — | — |
 
 Observação de rastreabilidade: existe `Models/Posicao.cs`, mas o arquivo está **inteiramente comentado**. A classe `Posicao` em uso é declarada no fim de `Models/CarteiraSimulada.cs` (namespace `Portfy.Models`).
+
+Observação de rota: as rotas neste documento aparecem em minúsculas (`api/usuario`). O backend declara `[Route("api/[controller]")]`, então a forma publicada é PascalCase (`api/Usuario`), e o roteamento do ASP.NET é insensível a caixa. A padronização para minúsculas é dívida P2-f (`docs/arch.md` §20).
 
 ## 3. Identidade e acesso (`Usuario`)
 
 Responsabilidade declarada na classe: identidade, renda mensal e autenticação da conta.
 
-### 3.1 Cadastro de usuário — **Completa** (sem persistência)
+### 3.1 Cadastro de usuário — **Completa**
 
 `POST /api/usuario/cadastro` → `UsuarioController.Cadastrar` → `UsuarioService.Cadastrar` → `new Usuario(...)`.
 
@@ -61,7 +63,7 @@ Regras aplicadas, em ordem:
 4. `Usuario` valida `id > 0`, `nome` não vazio, `login` não vazio, `senha` não vazia, `salário >= 0` → `ArgumentException` → `400`.
 5. Senha é convertida em hash **PBKDF2-SHA256, 100 000 iterações, salt aleatório de 16 bytes, 32 bytes de saída**, armazenada como `salt:hash` em `SenhaHash`. A senha em texto puro não é guardada em campo algum.
 6. Toda conta nasce com `ContaVerificada = false`.
-7. `Id` é sequencial, gerado em memória por `UsuarioService._proximoId` (inicia em 1).
+7. `Id` é gerado pelo banco (`ValueGeneratedOnAdd`); `Id = 0` significa "ainda sem identidade" e é o valor usado pelo construtor de domínio.
 8. Sucesso → `201 Created` com `Location` apontando para `GET /api/usuario/{id}`.
 
 Tela: `Cadastro.tsx` (nome, e-mail como login, salário, senha e confirmação; valida senha = confirmação no cliente).
@@ -105,7 +107,7 @@ Tela: `Dashboard.tsx`, modo "Editar Perfil" (nome + salário). Se o nome for inv
 
 ### 3.8 Exclusão de conta — **Completa**
 
-`DELETE /api/usuario/{id}` → remove do conjunto em memória → `404` se não existir. Tela: `Dashboard.tsx` ("Excluir Conta", com confirmação e remoção do `localStorage`).
+`DELETE /api/usuario/{id}` → `UsuarioService.Excluir` remove do banco (`Remove` + `SaveChanges`) → `404` se não existir. Tela: `Dashboard.tsx` ("Excluir Conta", com confirmação e remoção do `localStorage`).
 
 ### 3.9 Renda disponível — **Só no domínio**
 
@@ -113,11 +115,11 @@ Tela: `Dashboard.tsx`, modo "Editar Perfil" (nome + salário). Se o nome for inv
 
 ## 4. Carteira simulada (`CarteiraSimulada`, `Posicao`)
 
-Representa uma carteira única de investimentos com saldo em dinheiro e posições. Toda a classe usa um `lock` interno (`_lock`) e expõe as coleções como `IReadOnlyCollection`, de modo que duas requisições simultâneas não corrompem saldo ou listas.
+Representa uma carteira única de investimentos com saldo em dinheiro e posições. A classe usa um `lock` interno (`_lock`) para serializar as próprias mutações e expõe as coleções como `IReadOnlyCollection`. Esse `lock` **não** é o mecanismo de concorrência entre requisições: quem serializa escrita no banco é `DbContext` `Scoped` + transação (`docs/arch.md` §9, item 3).
 
 ### 4.1 Saldo e patrimônio — **Exposta na API, sem tela**
 
-- `CarteiraSimulada(saldoInicial)` recusa saldo negativo; `CarteiraService` cria a carteira com **R$ 10.000,00** fixos (constante `SaldoInicialPadrao`).
+- `CarteiraSimulada(saldoInicial)` recusa saldo negativo. A carteira padrão vem do seed da migration (`SeedInicial.CarteiraPadraoId`, `SaldoInicialCarteira = 10000m`); `CarteiraService.ObterCarteira` lê do banco e falha explicitamente se ela não existir.
 - `CalcularPatrimonioTotal()` = `SaldoDisponivel + Σ (quantidade × preço atual do ativo)`.
 - `GET /api/carteira` devolve `patrimonioTotal`, `saldoDisponivel`, `posicoes` e `aportes`.
 - Nenhuma tela consome esse endpoint: os cards "Saldo Disponível" e "Patrimônio Total" do `Dashboard.tsx` exibem **"R$ 0,00" fixo**.
@@ -153,13 +155,13 @@ Não existe endpoint de compra: é a funcionalidade de investimento mais central
 
 `POST /api/aporte` → `AporteController.AdicionarAporte` → `AporteService.Criar`.
 
-Regras: `valor > 0` e `origemSalarioId > 0`; sucesso devolve `200` com o aporte criado; `Id` sequencial em memória; data = `DateTime.Now` quando não informada.
+Regras: `valor > 0`, `origemSalarioId > 0` e origem precisa existir em `Usuarios` (verificado pelo serviço antes da escrita; ausente → `400`); sucesso devolve `200` com o aporte criado; `Id` é gerado pelo banco; data = `DateTime.Now` quando não informada (dívida P2-d).
 
-**Limite funcional atual:** o controller cria e devolve o aporte, mas não o entrega a `CarteiraSimulada.AdicionarAporte`. Portanto, um aporte feito pela API **não altera saldo nem patrimônio** — o efeito só existe quando o aporte é adicionado diretamente à carteira (§4.2). `origemSalarioId` não é validado contra nenhum usuário existente.
+**Limite funcional atual:** o serviço grava o aporte em `Aportes`, mas não o entrega a `CarteiraSimulada.AdicionarAporte`. Portanto, um aporte feito pela API **não altera saldo nem patrimônio** — o efeito só existe quando o aporte é adicionado diretamente à carteira (§4.2). Alêm disso, o aporte nasce sem vínculo com carteira: `AporteSimulado` não tem `CarteiraId` no domínio, e a FK `CarteiraSimuladaId` existe apenas como *shadow property* anulável (`Data/Configurations/AporteSimuladoConfiguration.cs`).
 
 ### 5.2 Histórico — **Exposta na API, sem tela**
 
-`GET /api/carteira` devolve `aportes`. Sempre vazio no fluxo HTTP, pela razão descrita em §5.1. Nenhuma tela exibe histórico: o painel "Últimos Aportes" do `Dashboard.tsx` é um estado vazio fixo.
+`GET /api/carteira` devolve `aportes`. No fluxo HTTP a lista vem vazia porque o aporte é gravado sem vínculo com a carteira (FK anulável, §5.1) e a navegação só carrega aportes com `CarteiraSimuladaId` preenchido. Nenhuma tela exibe histórico: o painel "Últimos Aportes" do `Dashboard.tsx` é um estado vazio fixo.
 
 ## 6. Catálogo de ativos e rendimento (`Ativo` e subclasses)
 
@@ -185,7 +187,7 @@ Todos os retornos são arredondados para 2 casas. Consumidores: apenas `tests/Po
 
 `GET /api/ativo` e `GET /api/ativo/{ticker}` (ticker comparado sem diferenciar maiúsculas; inexistente → `404`). Devolvem ticker, nome, tipo como string, preço atual e rentabilidade.
 
-O catálogo de `AtivoService` é uma lista fixa em memória com **4 ativos**: `PETR4` (Ação, DY 12%), `VALE3` (Ação, DY 8,5%), `HGLG11` (FII, R$ 1,10/cota), `BTC` (Cripto, sem staking). Classes `Etf` e `RendaFixa` existem e têm fórmula, mas **não há instância alguma** delas no catálogo.
+O catálogo vem do seed aplicado pela migration (`Data/Seed/SeedInicial.cs`), lido por `DbSet<Ativo>`, com **4 ativos**: `PETR4` (Ação, DY 12%), `VALE3` (Ação, DY 8,5%), `HGLG11` (FII, R$ 1,10/cota), `BTC` (Cripto, staking 0%). Classes `Etf` e `RendaFixa` existem e têm fórmula, mas **não há instância alguma** delas no seed.
 
 Tela: `frontend/src/components/Ativos.tsx` consome `GET /api/ativo`, porém **não é importado por nenhum outro arquivo** — o catálogo não aparece na aplicação.
 
@@ -198,7 +200,7 @@ Tela: `frontend/src/components/Ativos.tsx` consome `GET /api/ativo`, porém **n�
 - Calcula `novoPreço = round(preçoAnterior × (1 + p/100), 2)` (arredondamento para fora do zero), chama `Ativo.AtualizarPreco` e devolve `precoAnterior`, `novoPreco` e `rentabilidadeAcumulada`.
 - Ticker inexistente → `404`; erro de argumento → `400`.
 
-A variação é **mutação de estado do catálogo**: como `IAtivoService` é `Singleton`, o preço alterado persiste entre requisições até o processo reiniciar. Nenhuma tela chama esse endpoint.
+A variação é **mutação persistida do catálogo**: `IAtivoService` é `Scoped`, e o novo preço é gravado por `SaveChanges`, sobrevivendo ao reinício da API (o seed é idempotente e não sobrescreve preço já simulado — `PersistenciaTests`). Nenhuma tela chama esse endpoint.
 
 ## 7. Orçamento por categoria (`Orcamento`)
 
@@ -212,7 +214,7 @@ A variação é **mutação de estado do catálogo**: como `IAtivoService` é `S
 
 ### 7.2 Limites funcionais atuais
 
-- Existe **um único orçamento**, fixo em `OrcamentoService`: `"Alimentação"`, limite R$ 1.200,00, 24% do salário. Não há endpoint para criar, listar ou remover categorias.
+- Existe **um único orçamento**, criado pelo seed (`SeedInicial.OrcamentoPadraoId`): `"Alimentação"`, limite R$ 1.200,00, 24% do salário. Não há endpoint para criar, listar ou remover categorias.
 - `PercentualDoSalario` é armazenado e devolvido, mas **não participa de nenhum cálculo** (nem deriva o limite a partir do salário do usuário).
 - O orçamento não é vinculado a um usuário: todos os usuários leem e alteram o mesmo gasto.
 - `Dashboard.tsx` exibe o painel "Orçamentos" como estado vazio fixo; nenhum cliente HTTP de orçamento existe no SPA.
@@ -225,15 +227,17 @@ Recebe `Usuario`, `CarteiraSimulada` e `List<Orcamento>` e monta, no console, um
 
 Nenhum arquivo instancia a classe (`grep RelatorioFinanceiro` só encontra a própria declaração). O efeito prático é que "relatório" não é uma funcionalidade disponível: a capacidade de consolidar dados existe, mas não é acionável por API nem por tela.
 
-## 9. Persistência declarada (`AppDbContext`)
+## 9. Persistência (`AppDbContext`)
 
-Estado: **Órfã**.
+Estado: **Completa** — é a autoridade única de estado (`docs/arch.md` §9).
 
-- `Data/AppDbContext.cs` declara `DbSet` para `Usuario`, `Ativo`, `CarteiraSimulada`, `AporteSimulado` e `Orcamento`; `OnModelCreating` está vazio, sem chave primária declarada, sem conversões e sem configuração explícita da herança de `Ativo` (o mapeamento ficaria na convenção do EF, que nenhum gate exercita).
-- `Program.cs` registra o contexto com SQLite, mas **nenhum serviço o injeta**; a string de conexão é lida de `appsettings.json` em uma variável e descartada, com `"Data Source=portfy.db"` literal.
-- Não existe pasta `Data/Migrations` nem arquivo `portfy.db` no repositório.
+- `Data/AppDbContext.cs` declara 5 `DbSet` (`Usuarios`, `Ativos`, `CarteirasSimuladas`, `AportesSimulados`, `Orcamentos`); `OnModelCreating` aplica `ApplyConfigurationsFromAssembly` + `SeedInicial.Aplicar`.
+- `Data/Configurations/` tem 7 arquivos: chave primária, FKs, `HasPrecision(18,2)`, índice único de `Ticker` com colação `NOCASE` e a hierarquia de `Ativo` em TPH com discriminador string na coluna `Tipo`.
+- `Program.cs` lê `ConnectionStrings:DefaultConnection` (ausência derruba o startup), registra `AppDbContext` como `Scoped` com `UseSqlite` + `SqlitePragmaInterceptor` (`foreign_keys`, WAL, `busy_timeout`) e aplica `Database.Migrate()` na inicialização.
+- `Data/Migrations/20261101003441_InitialCreate` cria o schema; o seed é idempotente (ADR-016). `portfy.db` fica fora do git (`.gitignore`, linhas 12-14).
+- `Data/AppDbContextEmMemoria.cs` é o seam da suíte de testes: SQLite in-memory pelo mesmo caminho de persistência.
 
-Consequência funcional: tudo o que §3–§7 faz **desaparece ao reiniciar a API**. Não há funcionalidade de histórico, auditoria ou recuperação de dados.
+Consequência funcional: o estado de §3–§7 **sobrevive ao reinício da API**, coberto por `tests/Portfy.Tests/Data/PersistenciaTests.cs`. O que ainda não existe: histórico/auditoria de alterações, paginação de listagens e backup.
 
 ## 10. Interface web (SPA React)
 
@@ -258,41 +262,42 @@ Funil de integração: **16 endpoints** existem na API (`/api/usuario` 9, `/api/
 1. **Validação na construção do objeto**: `Models/` rejeita estado inválido no construtor ou no método que altera o estado; setters são privados/get-only, e mutações passam por métodos com nome de regra (`AtualizarPreco`, `AdicionarDespesa`, `ReduzirQuantidade`).
 2. **Dinheiro em `decimal`**, arredondado para 2 casas nos pontos de cálculo de preço e rendimento; exposição monetária formatada em pt-BR/BRL apenas no SPA.
 3. **Erros de domínio → HTTP**: `ArgumentException`/`ArgumentOutOfRangeException` → `400`; recurso inexistente → `404`; conflito de unicidade de login → `409`; falha de autenticação → `401`. As mensagens vão no envelope `{ Mensagem }` (ou `detail`, quando o `[ApiController]` responde `ProblemDetails`).
-4. **Estado em memória com proteção de concorrência**: `UsuarioService`, `CarteiraSimulada` usam `lock`; os serviços são `Singleton` em `Program.cs`.
+4. **Estado persistido com concorrência controlada**: os serviços são `Scoped` e recebem `AppDbContext`; concorrência é `DbContext` por requisição + transação. O `lock` de `CarteiraSimulada` serializa as mutações internas do objeto, não requisições concorrentes (`docs/arch.md` §9, item 3).
 5. **CORS restrito** a `http://localhost:5173` e `http://localhost:3000`; Swagger UI só em `Development`.
 6. **Sem autenticação/autorização de transporte**: não há `AddAuthentication`, não há `[Authorize]` em nenhum controller, e `app.UseAuthorization()` opera sem esquema configurado. Qualquer cliente alcança qualquer `id`.
 
-## 12. Cobertura de testes (61 casos, 55 métodos)
+## 12. Cobertura de testes (66 casos, 60 métodos)
 
-Números medidos com `dotnet test tests/Portfy.Tests` na base `11c5bf4`. A coluna abaixo conta **métodos** de teste; teorias com `[InlineData]` geram mais de um caso.
+Números medidos com `dotnet test tests/Portfy.Tests` na base `34f2657`. A coluna **Métodos** conta `[Fact]` + `[Theory]`; **Casos** conta cada `[InlineData]` como caso próprio, e é esse total que o `dotnet test` reporta.
 
-| Área | Métodos | O que garantem |
-|---|---|---|
-| `CarteiraSimulada` | 11 | saldo inicial, compra sem saldo, preço médio ponderado, venda sem posição, remoção ao zerar, aporte somando ao saldo, patrimônio |
-| `Posicao` | 5 | construtor, redução acima do disponível |
-| `Usuario` | 11 | senha não armazenada em texto puro, hash verificável, conta nasce não verificada, troca de senha, salário |
-| `Orcamento` | 6 | limite, percentual, acúmulo de gasto, estouro, saldo negativo |
-| `Ativo` | 7 | ticker/preço válidos, normalização de ticker, rentabilidade, polimorfismo de `Acao`/`FII`/`Cripto` |
-| `AtivoService` | 5 | variação pelo percentual sorteado, percentual customizado, ticker inexistente, catálogo |
-| `UsuarioService` | 7 | ids sequenciais, login duplicado sem caixa, autenticação, exclusão, atualização |
-| `CarteiraController` | 3 | resposta montada a partir do serviço injetado, serviço nulo, saldo padrão |
+| Área | Métodos | Casos | O que garantem |
+|---|---|---|---|
+| `CarteiraSimulada` | 11 | 12 | saldo inicial, compra sem saldo, preço médio ponderado, venda sem posição, remoção ao zerar, aporte somando ao saldo, patrimônio |
+| `Posicao` | 5 | 7 | construtor, redução acima do disponível |
+| `Usuario` | 11 | 11 | senha não armazenada em texto puro, hash verificável, conta nasce não verificada, troca de senha, salário |
+| `Orcamento` | 6 | 7 | limite, percentual, acúmulo de gasto, estouro, saldo negativo |
+| `Ativo` | 7 | 9 | ticker/preço válidos, normalização de ticker, rentabilidade, polimorfismo de `Acao`/`FII`/`Cripto` |
+| `AtivoService` | 5 | 5 | variação pelo percentual sorteado, percentual customizado, ticker inexistente, catálogo |
+| `UsuarioService` | 7 | 7 | login duplicado sem caixa, autenticação, exclusão, atualização |
+| `CarteiraController` | 3 | 3 | resposta montada a partir do serviço injetado, serviço nulo, saldo padrão |
+| `Persistencia` (`Data/`) | 5 | 5 | usuário sobrevive à troca de contexto, seed não duplica nem sobrescreve preço, precisão de `decimal` na ida e volta, posições recarregadas, aporte exige usuário existente e recebe `Id` do banco |
 
-Sem teste hoje: `Etf` e `RendaFixa` (rendimento), `AporteSimulado`, `AporteService`, `AporteController`, `OrcamentoController`, `UsuarioController`, `GeradorDeVariacaoAleatoria`, `RelatorioFinanceiro`, `AppDbContext`, e todo o SPA.
+Sem teste hoje: `Etf` e `RendaFixa` (rendimento), o domínio `AporteSimulado`, `AporteController`, `OrcamentoController`, `UsuarioController`, `GeradorDeVariacaoAleatoria`, `RelatorioFinanceiro` e todo o SPA. `AporteService` tem cobertura indireta em `PersistenciaTests`.
 
 ## 13. Funcionalidades ausentes (não existem no código)
 
 Listadas para impedir que sejam tratadas como existentes:
 
-- Persistência real (SQLite ou qualquer banco): nada é gravado em disco.
 - Compra e venda de ativos por HTTP; aporte afetando a carteira por HTTP.
-- Vínculo entre usuário e carteira/orçamento/aportes: todos compartilham o mesmo estado global.
+- Vínculo entre usuário e carteira/orçamento/aportes: todos compartilham o mesmo estado global (uma carteira e um orçamento no seed).
 - Múltiplas carteiras ou múltiplas simulações por usuário; clonagem de simulação.
 - Rebalanceamento de aportes, conversão de moedas, alocação-meta por ativo.
-- Busca de ativos por nome/ticker, seed de catálogo, cadastro de novos ativos por API.
+- Busca de ativos por nome/ticker; cadastro de novos ativos por API.
 - `Despesa` datada e categorias de orçamento configuráveis; classificação fixo/variável; contas recorrentes.
 - Indicador de taxa de poupança.
 - Relatório consolidado exposto por API ou tela.
 - Autenticação por token/sessão, autorização por usuário, recuperação de senha, 2FA.
+- Histórico/auditoria de alterações e backup do banco.
 - Histórico de preços, cotação por fonte externa, câmbio automático.
 - Paginação, filtros, ordenação em qualquer listagem.
 - Rotas no SPA (deep link), navegação pelo menu lateral, gráficos.

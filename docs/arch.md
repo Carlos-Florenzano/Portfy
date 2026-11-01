@@ -33,6 +33,8 @@ Consequências práticas:
 | `docs/arch.md` (este) | **como** construir | sempre |
 | `docs/funcionalidades.md` | **o que o código entrega hoje** (funcionalidade por funcionalidade, com estado real) | antes de afirmar que algo já existe |
 | `docs/diagrama-classe-candidatas.md` | **o que ainda falta criar** (classes candidatas, relações e ordem de implementação) | antes de criar entidade, serviço ou contrato novo |
+| `docs/diagrama.md` | **como o sistema se comporta em execução** (camadas, ER, sequências, navegação do SPA) | ao mexer em fluxo de requisição, schema ou tela |
+| `docs/roadmap.md` | **em que ordem construir** (fases, etapas, aceite e gates) | ao iniciar uma entrega |
 
 Regra: se uma alteração contraria `notas/importante/sugestoes_mvp_portfy_temp_outubro_2026.md`, ela está fora de escopo. Se contraria este documento, exige ADR.
 
