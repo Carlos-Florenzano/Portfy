@@ -7,6 +7,11 @@ public class Acao : Ativo
     public decimal DividendYieldAnual { get; private set; }
     public override TipoAtivo Tipo => TipoAtivo.Acao;
 
+    // Construtor exigido pelo EF Core para materializar uma ação já persistida (TPH).
+    protected Acao()
+    {
+    }
+
 //  O dividendYield é um indicador financeiro que mede a taxa de retorno de uma ação ou fundo imobiliário (FII)
     public Acao(string ticker, string nome, decimal precoInicial, decimal dividendYieldAnual)
         : base(ticker, nome, precoInicial)

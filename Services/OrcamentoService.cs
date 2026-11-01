@@ -1,15 +1,33 @@
+using Portfy.Data;
+using Portfy.Data.Seed;
 using Portfy.Models;
 using Portfy.Services.Contracts;
 
 namespace Portfy.Services;
 
-/// Orçamento de exemplo mantido no processo. Registrado como Singleton
-/// até a persistência em SQLite assumir o estado (dívida P0-a).
+/// Orçamento persistido no SQLite: o orçamento padrão vem do seed da migration e
+/// cada despesa é somada pelo método de domínio AdicionarDespesa e gravada por
+/// SaveChanges. Registrado como Scoped porque depende do AppDbContext.
 public sealed class OrcamentoService : IOrcamentoService
 {
-    private readonly Orcamento _orcamento = new("Alimentação", 1200m, 24m);
+    private readonly AppDbContext _db;
 
-    public Orcamento ObterOrcamento() => _orcamento;
+    public OrcamentoService(AppDbContext db)
+    {
+        _db = db ?? throw new ArgumentNullException(nameof(db));
+    }
 
-    public void AdicionarDespesa(decimal valor) => _orcamento.AdicionarDespesa(valor);
+    public Orcamento ObterOrcamento() =>
+        _db.Orcamentos.FirstOrDefault(o => o.Id == SeedInicial.OrcamentoPadraoId)
+        ?? throw new InvalidOperationException(
+            "O orçamento padrão não foi inicializado. Verifique se as migrations foram aplicadas.");
+
+    public void AdicionarDespesa(decimal valor)
+    {
+        Orcamento orcamento = ObterOrcamento();
+
+        orcamento.AdicionarDespesa(valor);
+
+        _db.SaveChanges();
+    }
 }

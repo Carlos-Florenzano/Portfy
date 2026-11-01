@@ -1,6 +1,6 @@
 # Implementação da Persistência SQLite — Projeto Portfy
 
-Atue como um Arquiteto de Software e Engenheiro Backend Sênior especializado em ASP.NET Core, .NET 8, C#, Entity Framework Core e SQLite.
+Atue como um Arquiteto de Software e Engenheiro Backend Sênior especializado em ASP.NET Core, .NET 10, C#, Entity Framework Core e SQLite.
 
 Preciso implementar uma camada de persistência real utilizando SQLite e Entity Framework Core no projeto **Portfy**, migrando o estado volátil em memória para um banco de dados relacional.
 

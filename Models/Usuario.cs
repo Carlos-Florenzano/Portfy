@@ -8,8 +8,9 @@ namespace Portfy.Models;
 // e autenticação da conta.
 public class Usuario
 {
-    // Id não muda após a criação (get-only)
-    public int Id { get; }
+    // Id não muda após a criação. O setter privado existe apenas para que a
+    // persistência grave a chave autoincrementada; o domínio não expõe escrita.
+    public int Id { get; private set; }
 
     // Propriedades com private set para integridade dos dados
     public string Nome { get; private set; }
@@ -38,19 +39,27 @@ public bool ContaVerificada { get; private set; }
 
     // NOVO: construtor utilizado para cadastrar
     // um usuário com login e senha.
+    // Id = 0 significa "ainda sem identidade": a chave é atribuída pela persistência.
     public Usuario(
         string nome,
         decimal salarioMensal,
         string login,
         string senha)
         : this(
-            1,
+            0,
             nome,
             salarioMensal,
             DateTime.Now,
             login,
             senha)
     {
+    }
+
+
+    // Construtor exigido pelo EF Core para materializar um usuário já persistido.
+    private Usuario()
+    {
+        Nome = string.Empty;
     }
 
 
@@ -90,7 +99,8 @@ public bool ContaVerificada { get; private set; }
         string login,
         string senha)
     {
-        if (id <= 0)
+        // Id 0 é reservado ao usuário ainda não persistido (chave gerada pelo banco).
+        if (id < 0)
             throw new ArgumentException(
                 "O ID do usuário deve ser um valor positivo.",
                 nameof(id));

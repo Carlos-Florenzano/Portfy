@@ -6,6 +6,11 @@ public class RendaFixa : Ativo
 
     public override TipoAtivo Tipo => TipoAtivo.RendaFixa;
 
+    // Construtor exigido pelo EF Core para materializar uma renda fixa já persistida (TPH).
+    protected RendaFixa()
+    {
+    }
+
     public RendaFixa(string ticker, string nome, decimal precoInicial, decimal taxaAnualContratada)
         : base(ticker, nome, precoInicial)
     {

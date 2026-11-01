@@ -5,11 +5,19 @@ using Portfy.Services.Contracts;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Adicionar o contexto do SQLite e lê a chave "DefaultConnection" do appsettings.json
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+// A connection string tem uma única origem: ConnectionStrings:DefaultConnection no appsettings.json.
+// Se ela não existir, a API falha no startup em vez de usar um caminho mágico.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException(
+        "A connection string 'DefaultConnection' não está configurada em appsettings.json.");
 
+// AppDbContext (SQLite) registrado como Scoped: uma instância por requisição HTTP.
+// O interceptor reaplica os PRAGMAs toda vez que o EF abre uma conexão
+// (foreign_keys = ON, journal_mode = WAL, busy_timeout = 5000, synchronous = NORMAL),
+// que é o que sustenta requisições concorrentes sem corromper o banco.
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite("Data Source=portfy.db"));
+    options.UseSqlite(connectionString)
+           .AddInterceptors(new SqlitePragmaInterceptor()));
 
 // Configuração dos Controllers e Swagger:
 
@@ -22,15 +30,15 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddControllers();
 
 // Injeção de dependência: cada controller depende de uma interface do namespace
-// Portfy.Services.Contracts, nunca de uma instância concreta. Singleton porque o estado
-// ainda vive em memória (dívida P0-a): quando o AppDbContext assumir a persistência,
-// estes registros passam a Scoped.
+// Portfy.Services.Contracts, nunca de uma instância concreta. Todo serviço que usa
+// o AppDbContext é Scoped, acompanhando o ciclo de vida da requisição; apenas o
+// gerador de variação, que é sem estado e não toca no banco, permanece Singleton.
 builder.Services.AddSingleton<IGeradorDeVariacao, GeradorDeVariacaoAleatoria>();
-builder.Services.AddSingleton<IAtivoService, AtivoService>();
-builder.Services.AddSingleton<IUsuarioService, UsuarioService>();
-builder.Services.AddSingleton<ICarteiraService, CarteiraService>();
-builder.Services.AddSingleton<IOrcamentoService, OrcamentoService>();
-builder.Services.AddSingleton<IAporteService, AporteService>();
+builder.Services.AddScoped<IAtivoService, AtivoService>();
+builder.Services.AddScoped<IUsuarioService, UsuarioService>();
+builder.Services.AddScoped<ICarteiraService, CarteiraService>();
+builder.Services.AddScoped<IOrcamentoService, OrcamentoService>();
+builder.Services.AddScoped<IAporteService, AporteService>();
 
 // builder.Services.AddEndpointsApiExplorer():
 // No Backend: Analisa todo o código do seu projeto e vasculha quais rotas,
@@ -57,6 +65,14 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Cria o portfy.db na primeira execução e aplica as migrations pendentes nas seguintes
+// (EnsureCreated é proibido: o esquema só nasce de migration). O seed inicial entra
+// uma única vez, então reiniciar a API não duplica nem sobrescreve dados.
+using (var scope = app.Services.CreateScope())
+{
+    scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
+}
 
 // Executa a interface visual do Swagger apenas em ambiente de desenvolvimento
 if (app.Environment.IsDevelopment())
