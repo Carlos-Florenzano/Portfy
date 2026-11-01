@@ -26,30 +26,32 @@ Consequências práticas:
 
 | Documento | É autoridade sobre | Quando é obrigatório ler |
 |---|---|---|
-| `notas/sugestoes_mvp_portfy_temp_outubro_2026.md` | **escopo funcional do MVP** (o *quê*) | antes de criar/alterar qualquer funcionalidade |
-| `notas/portfy_avaliacao_av1_professor_andre.md` | **critérios de qualidade OO avaliados** e causas raiz apontadas | antes de alterar domínio, camadas ou estrutura |
-| `notas/AVISOS.txt` | **procedimento operacional** de migrations EF | antes de mexer em schema |
+| `notas/importante/sugestoes_mvp_portfy_temp_outubro_2026.md` | **escopo funcional do MVP** (o *quê*) | antes de criar/alterar qualquer funcionalidade |
+| `notas/importante/portfy_avaliacao_av1_professor_andre.md` | **critérios de qualidade OO avaliados** e causas raiz apontadas | antes de alterar domínio, camadas ou estrutura |
+| `notas/etc/AVISOS.txt` | **procedimento operacional** de migrations EF | antes de mexer em schema |
 | `README.md` | visão geral, integrantes, pendências declaradas | ao iniciar trabalho no repositório |
 | `docs/arch.md` (este) | **como** construir | sempre |
+| `docs/funcionalidades.md` | **o que o código entrega hoje** (funcionalidade por funcionalidade, com estado real) | antes de afirmar que algo já existe |
+| `docs/diagrama-classe-candidatas.md` | **o que ainda falta criar** (classes candidatas, relações e ordem de implementação) | antes de criar entidade, serviço ou contrato novo |
 
-Regra: se uma alteração contraria `notas/sugestoes_mvp_portfy_temp_outubro_2026.md`, ela está fora de escopo. Se contraria este documento, exige ADR.
+Regra: se uma alteração contraria `notas/importante/sugestoes_mvp_portfy_temp_outubro_2026.md`, ela está fora de escopo. Se contraria este documento, exige ADR.
 
-### 2.2 Escopo funcional do MVP (`notas/sugestoes_mvp_portfy_temp_outubro_2026.md` §3) → módulo dono
+### 2.2 Escopo funcional do MVP (`notas/importante/sugestoes_mvp_portfy_temp_outubro_2026.md` §3) → módulo dono
 
 | Funcionalidade | Módulo dono canônico | Estado atual | Delta arquitetural exigido |
 |---|---|---|---|
 | Rebalanceamento automático de aportes (§3.1) | `Services/RebalanceamentoService.cs` | **inexistente** | `AlocacaoMeta` + cálculo puro determinístico (§11.5) |
 | Conversão de moedas simplificada (§3.1) | `Services/CambioService.cs` + `Models/CotacaoCambio.cs` | **inexistente**; `Ativo` não tem país/moeda | adicionar `Pais`/`Moeda` a `Ativo` + tabela de câmbio de atualização manual (ADR-015) |
-| Pesquisa de ativos por ticker/nome (§3.2) | `Services/AtivoService.cs` + `AtivoController` | **parcial**: catálogo `static` em memória, sem busca | busca sobre `DbSet<Ativo>`; remover catálogo em memória (§9) |
-| Seed inicial offline de ativos (§3.2) | `Data/Seed/` executado por migration | **inexistente** | seed idempotente (ADR-016) |
+| Pesquisa de ativos por ticker/nome (§3.2) | `Services/AtivoService.cs` + `AtivoController` | **parcial**: catálogo lido do SQLite via `DbSet<Ativo>`, sem busca por nome | busca por nome; catálogo em memória já removido (2026-11-01) |
+| Seed inicial offline de ativos (§3.2) | `Data/Seed/SeedInicial.cs`, aplicado por migration | ✅ **feito** (2026-11-01) | manter idempotência (ADR-016) |
 | Visão consolidada macro/micro, gráfico de pizza (§3.3) | `Services/RelatorioFinanceiroService.cs` → DTO; renderização no SPA | **parcial**: hoje imprime em console | relatório vira DTO; `Console` sai do `Services` (§6.2) |
 | Simulador "e se?" (§3.3) | endpoint de *preview* que não persiste | **inexistente** | `POST api/carteiras/{id}/simular` sem escrita (ADR-017) |
 | Orçamentos fixos vs. variáveis, contas recorrentes (§3.4) | `Models/Orcamento.cs` (existe) | **parcial** | falta classificar fixo/variável e vincular a usuário |
 | Indicador de taxa de poupança (§3.4) | `Services/IndicadorService.cs` | **inexistente** | fórmula única, determinística, testada |
-| Múltiplas simulações + seletor de perfil (§3.5) | `CarteiraSimulada` com `Id`, `UsuarioId`, `Nome` | **não existe** (hoje 1 carteira estática) | modelagem por usuário; remover singleton (§9) |
+| Múltiplas simulações + seletor de perfil (§3.5) | `CarteiraSimulada` com `Id`, `UsuarioId`, `Nome` | **não existe** (hoje 1 carteira fixa no seed, `SeedInicial.CarteiraPadraoId`) | modelagem por usuário (§9.1) |
 | Clonagem de simulação (§3.5) | `Services/CarteiraService.ClonarAsync` | **inexistente** | cópia sem IDs, em transação única |
 
-### 2.3 Schema proposto em `notas/sugestoes_mvp_portfy_temp_outubro_2026.md` §2 → modelo canônico
+### 2.3 Schema proposto em `notas/importante/sugestoes_mvp_portfy_temp_outubro_2026.md` §2 → modelo canônico
 
 | Proposta da spec | Modelo canônico | Observação |
 |---|---|---|
@@ -60,13 +62,13 @@ Regra: se uma alteração contraria `notas/sugestoes_mvp_portfy_temp_outubro_202
 
 ### 2.4 Fora do escopo do MVP
 
-Cotação em tempo real por API externa, câmbio automático, histórico de preços, autenticação social/2FA, notificações, deploy e CI. Só entram com funcionalidade escrita em `notas/sugestoes_mvp_portfy_temp_outubro_2026.md`.
+Cotação em tempo real por API externa, câmbio automático, histórico de preços, autenticação social/2FA, notificações, deploy e CI. Só entram com funcionalidade escrita em `notas/importante/sugestoes_mvp_portfy_temp_outubro_2026.md`.
 
 ---
 
 ## 3. Conformidade com a avaliação AV1
 
-A avaliação (`notas/portfy_avaliacao_av1_professor_andre.md`) é um **sinal de engenharia**, não um artefato decorativo: cada dimensão com nota baixa indica uma regra estrutural ausente. Nota final 6,92 (POO 6,45 · Frontend 8,00).
+A avaliação (`notas/importante/portfy_avaliacao_av1_professor_andre.md`) é um **sinal de engenharia**, não um artefato decorativo: cada dimensão com nota baixa indica uma regra estrutural ausente. Nota final 6,92 (POO 6,45 · Frontend 8,00).
 
 ### 3.1 Dimensão → requisito arquitetural → gate
 
@@ -103,7 +105,7 @@ A AV1 sugere "uma interface para a carteira". A decisão deste documento (ADR-01
 | Remover `UI/Dashboard.cs` e a pasta `UI/` | ✅ **resolvido** (commit `cbe4c05`) |
 | Introduzir herança/polimorfismo em `Ativo` | ✅ **resolvido** (commit `4a8be0a`) |
 | Introduzir DI + interface | ✅ **resolvido** (R6: 6 contratos em `Services/Contracts/`, registrados em `Program.cs`) |
-| Escrever testes das invariantes | ✅ **resolvido** (`tests/Portfy.Tests`, 61 testes) |
+| Escrever testes das invariantes | ✅ **resolvido** (`tests/Portfy.Tests`, 66 testes em 2026-11-01) |
 | Trocar `alert`/`console.error` por erro em tela + interceptor | ✅ **resolvido** (interceptor em `services/api.ts`) |
 | Resíduo de console no backend | ⚠️ `Services/RelatorioFinanceiro.cs` ainda imprime (`Console.Clear`/`WriteLine`) |
 
@@ -111,16 +113,19 @@ A AV1 sugere "uma interface para a carteira". A decisão deste documento (ADR-01
 
 ## 4. Estado atual verificado (baseline)
 
-Medido em 2026-10-30, após fechar os itens de "O que faltou" da AV1. **Não é opinião — é o resultado dos comandos abaixo.**
+Medido em **2026-10-30** (fechamento da AV1) e **remedido em 2026-11-01**, após a entrada do SQLite/EF. **Não é opinião — é o resultado dos comandos abaixo.** Onde a linha cita `2026-11-01`, esse é o valor atual.
 
 | Item | Comando / evidência | Resultado |
 |---|---|---|
 | Build do backend | `dotnet build Portfy.csproj` | **PASSA** — 0 erros, 0 warnings |
 | Build do frontend | `cd frontend && npm run build` | **PASSA** (79 módulos, ~250 ms) |
 | Lint do frontend | `cd frontend && npm run lint` | **PASSA** — 0 erros |
-| Migrations EF | `ls Data/` | **inexistentes** (só `AppDbContext.cs`) |
-| Projeto de testes | `dotnet test tests/Portfy.Tests` | **PASSA** — 61 testes, 0 falhas |
-| `AppDbContext` em uso | busca por `AppDbContext` em `*.cs` | **nenhum controller consome o banco** |
+| Migrations EF | `ls Data/Migrations` | **PASSA** — `20261101003441_InitialCreate` + `AppDbContextModelSnapshot` (2026-11-01) |
+| Configuração EF por entidade | `ls Data/Configurations` | **PASSA** — 7 `IEntityTypeConfiguration` (2026-11-01) |
+| Seed de ativos | `ls Data/Seed` | **PASSA** — `SeedInicial.cs`, idempotente (2026-11-01) |
+| Projeto de testes | `dotnet test tests/Portfy.Tests` | **PASSA** — 66 testes, 0 falhas (2026-11-01) |
+| `AppDbContext` em uso | busca por `AppDbContext` em `*.cs` | **PASSA** — consumido pelos 5 serviços `Scoped`; nenhum controller o referencia (2026-11-01) |
+| `*.db` fora do git | `grep db .gitignore` | **PASSA** — `*.db`, `*.db-shm`, `*.db-wal` (linhas 12-14) |
 | Autenticação | busca por `AddAuthentication` / `[Authorize]` | **inexistente** |
 | `get; set;` em `Models/` | `grep -rn "get; set;" Models` | **vazio** ✅ (conquista da AV1, preservar) |
 | `alert` no frontend | `grep -rn "alert(" frontend/src` | **vazio** ✅ |
@@ -140,15 +145,16 @@ Todos em `Controllers/AtivoController.cs`, escrito contra a versão antiga de `A
 
 **Consequência normativa:** build e lint são gates independentes e ambos estão verdes. A correção seguiu R1: catálogo com subclasses concretas de `Ativo`, `RentabilidadeAcumulada` no lugar de `RentabilidadeSimulada` e `AtualizarPreco(decimal)` no lugar de `SimularVariacaoPreco`.
 
-### 4.2 Três autoridades de estado concorrentes
+### 4.2 Autoridade única de estado (P0-a resolvido em 2026-11-01)
 
-| Onde | Estado guardado | Durabilidade |
-|---|---|---|
-| `Controllers/UsuarioController.cs:9` (`private static List<Usuario>`) | usuários, hash de senha | memória do processo |
-| `Controllers/CarteiraController.cs:31` (`private static CarteiraSimulada`) | saldo, posições, aportes | memória do processo |
-| `Program.cs:9` (`AddDbContext` + SQLite) | declarado, **não consumido** | arquivo `portfy.db` |
+| Fato | Evidência (2026-11-01) |
+|---|---|
+| Estado vive no SQLite | `Program.cs` registra `AppDbContext` com `UseSqlite(connectionString)` e aplica `Database.Migrate()` no startup |
+| Serviços recebem o `DbContext` por construtor | `AtivoService`, `CarteiraService`, `UsuarioService`, `OrcamentoService` e `AporteService` são `Scoped`; só `IGeradorDeVariacao` é `Singleton` (sem estado, sem banco) |
+| Nenhum `static` de domínio | `grep -rn "private static" Controllers Services` → vazio |
+| Controllers não tocam o banco | `grep -rn "AppDbContext\|EntityFrameworkCore" Controllers` → vazio (ADR-003) |
 
-Viola a regra de dono único (§9) — dívida **P0-a**.
+Histórico: até 2026-11-01 existiam **três** autoridades concorrentes — `private static List<Usuario>` em `UsuarioController`, `private static CarteiraSimulada` em `CarteiraController` e um `AppDbContext` declarado e nunca consumido. As duas primeiras foram eliminadas por R2 (§17.2), junto com o catálogo de ativos em memória.
 
 ---
 
@@ -160,11 +166,11 @@ Versões verificadas nos arquivos do repositório. **Trocar qualquer item exige 
 
 | Camada | Tecnologia | Versão | Fonte |
 |---|---|---|---|
-| Runtime / SDK | .NET | `net10.0` / SDK 10.0.402 | `Portfy.csproj:4` |
+| Runtime / SDK | .NET | `net10.0` / SDK 10.0.403 | `Portfy.csproj:4` + `dotnet --version` |
 | Framework web | ASP.NET Core Web API | 10 | `Portfy.csproj:1` |
-| ORM | EF Core + provider SQLite | 10.0.13 | `Portfy.csproj:11-12` |
-| Tooling EF | `Microsoft.EntityFrameworkCore.Design` | 10.0.13 | `Portfy.csproj:7` |
-| Documentação de API | Swashbuckle (Swagger UI, só Development) | 6.5.0 | `Portfy.csproj:13` |
+| ORM | EF Core + provider SQLite | 10.0.13 | `Portfy.csproj:18` |
+| Tooling EF | `Microsoft.EntityFrameworkCore.Design` | 10.0.13 | `Portfy.csproj:14` |
+| Documentação de API | Swashbuckle (Swagger UI, só Development) | 6.5.0 | `Portfy.csproj:19` |
 | Banco | SQLite (`portfy.db`) | — | `appsettings.json:8` |
 | Análise estática | `Nullable` + `ImplicitUsings` | — | `Portfy.csproj:5-6` |
 
@@ -182,7 +188,7 @@ Versões verificadas nos arquivos do repositório. **Trocar qualquer item exige 
 
 ### 5.3 Regras de stack
 
-1. **Proibido** adicionar dependência que não seja exigida por funcionalidade já descrita em `notas/sugestoes_mvp_portfy_temp_outubro_2026.md`. Gráficos (`Chart.js`/`Recharts`), router, state manager: só quando a feature existir, com ADR (§2.2 — gráfico de pizza é o primeiro candidato legítimo).
+1. **Proibido** adicionar dependência que não seja exigida por funcionalidade já descrita em `notas/importante/sugestoes_mvp_portfy_temp_outubro_2026.md`. Gráficos (`Chart.js`/`Recharts`), router, state manager: só quando a feature existir, com ADR (§2.2 — gráfico de pizza é o primeiro candidato legítimo).
 2. **Proibido** `float`/`double` para dinheiro (§11, item 1).
 3. **Proibido** um segundo ORM, segundo cliente HTTP ou segundo framework CSS.
 4. Versões ficam fixadas no manifesto (`Portfy.csproj`, `package.json`). Sem `latest`.
@@ -269,7 +275,7 @@ Regras derivadas:
 | `services` | ❌ | ❌ | ✅ | ✅ |
 | `types` | ❌ | ❌ | ❌ | — |
 
-1. `axios` é importado **exclusivamente** em `src/services/http.ts`.
+1. `axios` é importado **exclusivamente** em `src/services/api.ts` (renomeação para `http.ts` está na tabela §8.3).
 2. `pages` e `components` não chamam `http` diretamente — sempre via `services`.
 3. `types` contém apenas `type`/`interface`.
 
@@ -282,11 +288,11 @@ Regras derivadas:
 ```
 Portfy/
 ├── Portfy.csproj                  # manifesto: TFM, pacotes, exclusões de build
-├── Portfy.sln                     # criar quando existir o projeto de testes
+├── Portfy.slnx                    # solution: API + tests/Portfy.Tests (existe)
 ├── Program.cs                     # ÚNICO ponto de composição
-├── appsettings.json               # configuração não-secreta
-├── appsettings.Development.json
-├── Properties/launchSettings.json # porta canônica da API (5000)
+├── appsettings.json               # configuração não-secreta + ConnectionStrings
+├── appsettings.Development.json   # (a criar, quando houver configuração de dev)
+├── Properties/launchSettings.json # (a criar; hoje a porta vem do default do Kestrel)
 ├── Controllers/                   # borda HTTP — 1 controller por recurso
 ├── Dtos/                          # contratos, agrupados por recurso
 │   ├── Usuario/{CadastroRequest,LoginRequest,UsuarioResponse}.cs
@@ -313,9 +319,11 @@ Portfy/
 │   └── Ativos/{Ativo,Acao,Cripto,Etf,FundoImobiliario,RendaFixa,TipoAtivo}.cs
 ├── Data/
 │   ├── AppDbContext.cs
-│   ├── Configurations/            # 1 IEntityTypeConfiguration por entidade
+│   ├── AppDbContextEmMemoria.cs   # seam da suíte de testes (SQLite in-memory)
+│   ├── SqlitePragmaInterceptor.cs # PRAGMAs por conexão (WAL, foreign_keys, busy_timeout)
+│   ├── Configurations/            # 1 IEntityTypeConfiguration por entidade (7)
 │   ├── Seed/                      # seed idempotente (ADR-016)
-│   └── Migrations/                # gerado por `dotnet ef`
+│   └── Migrations/                # gerado por `dotnet ef` (InitialCreate commitada)
 ├── Middleware/ExceptionHandlingMiddleware.cs
 ├── tests/Portfy.Tests/            # xUnit, excluído do build da API
 └── frontend/                      # SPA
@@ -370,7 +378,7 @@ Commits próprios, um bloco por vez, build verde antes e depois.
 | `src/services/api.ts` | `src/services/http.ts` | baixo |
 | interfaces dentro de `usuarioService.ts` | `src/types/usuario.ts` | baixo |
 | DTOs aninhados em controllers | `Dtos/<Recurso>/` | médio (contrato) |
-| estado `static` em controllers | `AppDbContext` via `Services` | **alto — P0-a** |
+| estado `static` em controllers | `AppDbContext` via `Services` | ✅ **feito em 2026-11-01** (P0-a) |
 | `Models/Posicao.cs` comentado | apagar (classe já existe) ou extrair a classe para lá | baixo |
 
 ---
@@ -380,7 +388,7 @@ Commits próprios, um bloco por vez, build verde antes e depois.
 **Regra:** existe exatamente uma autoridade para dados persistidos: **SQLite via `AppDbContext`**. Nenhuma outra estrutura retém estado de domínio entre requisições.
 
 1. `private static` de tipo de domínio em `Controllers`/`Services` é **proibido**; só `const` e caches imutáveis com ADR.
-2. Singleton de domínio (`new CarteiraSimulada(10000m)` estático) **não** substitui persistência: não sobrevive a restart, não é transacional, não é isolado por usuário.
+2. Singleton de domínio (`new CarteiraSimulada(10000m)` estático) **não** substitui persistência: não sobrevive a restart, não é transacional, não é isolado por usuário. (Foi o estado real do código até 2026-11-01.)
 3. `lock` em objeto de domínio **não** é o mecanismo de concorrência aqui. Concorrência = `DbContext` `Scoped` (1 por requisição) + transação + controle otimista quando houver escrita concorrente real.
 4. Todo `Id` é gerado pelo banco. `_proximoId++` em memória é proibido.
 5. Estado de sessão do SPA (`localStorage.usuarioLogado`) **não** é autenticação — é apenas um identificador de UI (§15, item 4).
@@ -442,7 +450,7 @@ Erro aqui é corrupção de dado; nenhuma destas regras é negociável.
 
 ## 12. Persistência
 
-Procedimento canônico (de `notas/AVISOS.txt`, alinhado a `Data/Migrations`):
+Procedimento canônico (de `notas/etc/AVISOS.txt`, alinhado a `Data/Migrations`):
 
 ```
 dotnet tool install --global dotnet-ef              # uma vez por máquina
@@ -453,8 +461,8 @@ dotnet ef database update                           # cria/atualiza portfy.db
 Regras:
 
 1. **Migrations são a única forma de criar schema.** `EnsureCreated()` é proibido.
-2. **A connection string tem uma única origem:** `ConnectionStrings:DefaultConnection`, lida em `Program.cs`. Hoje `Program.cs:7` lê a configuração e `Program.cs:10` **ignora** o valor, usando o literal `"Data Source=portfy.db"` — P0-c.
-3. **`*.db` não vai para o git.** Adicionar `*.db`, `*.db-shm`, `*.db-wal` ao `.gitignore` da raiz — P0-d.
+2. **A connection string tem uma única origem:** `ConnectionStrings:DefaultConnection`, lida em `Program.cs` e passada a `UseSqlite(connectionString)`; se ausente, a API falha no startup em vez de cair num caminho mágico. ✅ **P0-c resolvido em 2026-11-01.**
+3. **`*.db` não vai para o git.** `*.db`, `*.db-shm`, `*.db-wal` estão no `.gitignore` da raiz (linhas 12-14). ✅ **P0-d resolvido em 2026-11-01.**
 4. Configuração de entidade que passe de 3 linhas vai para `Data/Configurations/<Entidade>Configuration.cs`, aplicada por `ApplyConfigurationsFromAssembly`. `OnModelCreating` não acumula configuração.
 5. **Não há repositório genérico.** `DbContext` já é a abstração; `IRepository<T>` é abstração especulativa proibida (§3.2). Testes usam SQLite in-memory com o mesmo `AppDbContext`.
 6. Escrita que afeta mais de uma tabela usa transação única. Sem transação, sem commit parcial.
@@ -472,7 +480,7 @@ Conflito real: os modelos validam no construtor e expõem `private set`; o EF pr
 4. Validação de **entrada do usuário** mora no DTO + `Services`. O modelo valida **invariante de domínio**.
 5. `Usuario` não faz hash de senha; hash é de `Services/SenhaHasher.cs` (o próprio comentário em `Models/Usuario.cs:2-3` reconhece isso).
 6. Nenhum modelo acessa `AppDbContext`, `IConfiguration`, `Clock`/`Random` estáticos ou serviços externos.
-7. `Ativo` precisa de `Id` (hoje **não tem**) e de construtor materializável para TPH.
+7. `Ativo` tem `Id` com `private set` e construtor protegido para TPH. ✅ **cumprido em 2026-11-01.**
 
 ---
 
@@ -499,7 +507,7 @@ Conflito real: os modelos validam no construtor e expõem `private set`; o EF pr
 
 ## 15. Segurança
 
-1. **CORS por allowlist** vinda de configuração. Hoje hardcoded em `Program.cs:34` (`localhost:5173`, `localhost:3000`). `AllowAnyOrigin` proibido.
+1. **CORS por allowlist** vinda de configuração. Hoje hardcoded no bloco `AddCors` de `Program.cs` (`localhost:5173`, `localhost:3000`). `AllowAnyOrigin` proibido.
 2. **`AllowedHosts: "*"`** (`appsettings.json:7`) deve ser substituído por hosts explícitos por ambiente.
 3. **Senhas:** PBKDF2-SHA256, salt por usuário, `CryptographicOperations.FixedTimeEquals`, ≥ 210.000 iterações (hoje 100.000). Nunca logar senha/hash/salt; nunca retornar `SenhaHash` em DTO.
 4. **Autenticação não existe.** `UseAuthorization()` sem `AddAuthentication()` não protege endpoint algum (zero `[Authorize]`). É **falsa garantia de segurança**: até ADR-010, todos os endpoints são declaradamente abertos e `localStorage.usuarioLogado` não é sessão.
@@ -540,7 +548,7 @@ Conflito real: os modelos validam no construtor e expõem `private set`; o EF pr
 
 Cada receita é uma sequência de arquivos, na ordem, para execução sem invenção de caminho.
 
-### 17.1 R1 — Restaurar o build verde (pré-requisito de tudo)
+### 17.1 R1 — Restaurar o build verde (✅ executado em 2026-10-30)
 
 1. Em `Controllers/AtivoController.cs`, trocar o catálogo por instâncias das subclasses concretas (`Acao`, `FundoImobiliario`, `Cripto`, `Etf`, `RendaFixa`), usando os construtores reais.
 2. Trocar `RentabilidadeSimulada` por `RentabilidadeAcumulada`.
@@ -550,7 +558,7 @@ Cada receita é uma sequência de arquivos, na ordem, para execução sem inven�
 
 **Aceite:** `dotnet build Portfy.csproj` com código de saída 0.
 
-### 17.2 R2 — Trocar memória por SQLite (P0-a)
+### 17.2 R2 — Trocar memória por SQLite (✅ executado em 2026-11-01; mantida como procedimento de referência)
 
 Ordem obrigatória, um commit por entidade:
 
@@ -594,7 +602,7 @@ Ordem obrigatória, um commit por entidade:
 4. Registrar em `src/App.tsx`.
 5. `npm run build && npm run lint`.
 
-### 17.6 R6 — Fechar os critérios abertos da AV1 (F e H)
+### 17.6 R6 — Fechar os critérios abertos da AV1 (✅ executado em 2026-10-30)
 
 1. `Services/Contracts/ICarteiraService.cs` + implementação injetada em `Program.cs`; controller passa a depender da interface (§3.2).
 2. Criar `tests/Portfy.Tests/Portfy.Tests.csproj` (xUnit) e adicionar ao `.sln`.
@@ -624,21 +632,25 @@ Ordem obrigatória, um commit por entidade:
 
 Todas devem retornar **vazio** (ou o valor indicado). São baratas e executáveis por qualquer agente.
 
-| Regra | Comando | Esperado |
-|---|---|---|
-| Sem setter público em modelos | `grep -rn "get; set;" Models` | vazio |
-| Sem estado estático de domínio | `grep -rn "private static" Controllers Services` | vazio |
-| Sem `Console` em `Services` | `grep -rn "Console\." Services` | vazio |
-| Sem `alert` no frontend | `grep -rn "alert(" frontend/src` | vazio |
-| Sem `any` explícito | `cd frontend && npm run lint` | 0 erros |
-| Sem `EnsureCreated` | `grep -rn "EnsureCreated" .` | vazio |
-| Sem `DateTime.Now` | `grep -rn "DateTime.Now" --include=*.cs .` | vazio |
-| Build | `dotnet build Portfy.csproj` | 0 erros |
-| Testes | `dotnet test tests/Portfy.Tests` | 0 falhas |
+| Regra | Comando | Esperado | Resultado em 2026-11-01 |
+|---|---|---|---|
+| Sem setter público em modelos | `grep -rn "get; set;" Models` | vazio | ✅ vazio |
+| Sem estado estático de domínio | `grep -rn "private static" Controllers Services` | vazio | ✅ vazio |
+| Sem `Console` em `Services` | `grep -rn "Console\." Services` | vazio | ❌ `RelatorioFinanceiro.cs` (P2-a) |
+| Sem `alert` no frontend | `grep -rn "alert(" frontend/src` | vazio | ✅ vazio |
+| Sem `any` explícito | `cd frontend && npm run lint` | 0 erros | ✅ 0 erros |
+| Sem **chamada** a `EnsureCreated` | `grep -rn "\.EnsureCreated(" --include="*.cs" .` | vazio | ✅ vazio (há 2 menções em comentário, em `Program.cs:70` e `AppDbContextEmMemoria.cs:15`) |
+| Sem `DateTime.Now` | `grep -rn "DateTime.Now" --include="*.cs" Models Services Controllers Data` | vazio | ❌ 3 ocorrências em `Models/` (P2-d) |
+| Build | `dotnet build Portfy.csproj` | 0 erros | ✅ 0 erros, 0 warnings |
+| Testes | `dotnet test tests/Portfy.Tests` | 0 falhas | ✅ 66/66 |
+
+Comando com `--include=*.cs` **sem aspas** falha silenciosamente no zsh (o shell tenta expandir o padrão): o gate devolve saída vazia e parece passar. Sempre citar o padrão.
+
+O esperado não muda quando o resultado está vermelho: gate que falha é dívida registrada em §20, não motivo para afrouxar a regra.
 
 ### 18.3 Regras de gate
 
-1. **Build ou lint vermelho bloqueia merge.** Hoje ambos estão vermelhos (§4): toda entrega começa por R1 e P1-f.
+1. **Build ou lint vermelho bloqueia merge.** Em 2026-11-01 ambos estão verdes (§4); a regra continua valendo para toda mudança futura.
 2. Falha pré-existente não pode ser reportada como corrigida pela mudança atual.
 3. `--no-verify` em hooks é proibido.
 4. Retry limitado a duas tentativas por classe de falha; sem mudança de estado, parar e reportar.
@@ -676,18 +688,20 @@ Todas devem retornar **vazio** (ou o valor indicado). São baratas e executávei
 
 | # | Dívida | Evidência | Critério de aceite |
 |---|---|---|---|
-| P0-a | Três autoridades de estado (memória + memória + SQLite morto) | §4.2 | todo estado via `AppDbContext`; zero `static` de domínio (R2) |
+| P0-a | ✅ resolvido em 2026-11-01 — autoridade única (SQLite via `AppDbContext`); zero `private static` de domínio | §4.2 | `grep "private static" Controllers Services` vazio |
 | P0-b | ✅ resolvido em 2026-10-30 — build do backend verde (R1) | §4.1 | `dotnet build` = 0 erros |
-| P0-c | Connection string configurada é ignorada | `Program.cs:7` vs `:10` | `UseSqlite(connectionString)` |
-| P0-d | `*.db` não ignorados no git | `.gitignore` raiz | `*.db*` ignorado |
-| P0-e | Nenhuma migration versionada | `ls Data/` | `Data/Migrations/` commitado |
+| P0-c | ✅ resolvido em 2026-11-01 — connection string da configuração vai para `UseSqlite`; ausente, falha no startup | `Program.cs` | `UseSqlite(connectionString)` |
+| P0-d | ✅ resolvido em 2026-11-01 — `*.db*` ignorado | `.gitignore:12-14` | `*.db*` ignorado |
+| P0-e | ✅ resolvido em 2026-11-01 — migration `InitialCreate` versionada | `ls Data/Migrations` | `Data/Migrations/` commitado |
+
+**Nenhuma dívida P0 aberta em 2026-11-01.**
 
 ### P1 — necessário para o MVP ser usável com segurança
 
 | # | Dívida | Critério de aceite |
 |---|---|---|
 | P1-a | Sem autenticação; login não emite credencial | JWT emitido/validado; carteira com `[Authorize]` |
-| P1-b | ✅ resolvido em 2026-10-30 — `tests/Portfy.Tests` com 61 testes das invariantes de R6 | `dotnet test` = 0 falhas |
+| P1-b | ✅ resolvido em 2026-10-30 — `tests/Portfy.Tests` com testes das invariantes de R6 (**66** em 2026-11-01) | `dotnet test` = 0 falhas |
 | P1-c | Erros em formato legado e duplicado | middleware único + ProblemDetails |
 | P1-d | PBKDF2 com 100k iterações | ≥ 210k, parametrizado |
 | P1-e | `AllowedHosts: "*"` e CORS hardcoded | allowlist por configuração |

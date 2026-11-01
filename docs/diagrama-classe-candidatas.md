@@ -2,7 +2,7 @@
 
 Documento de trabalho que transforma as decisões de `docs/arch.md` em **classes concretas**: o que já existe, o que precisa mudar e o que ainda vai ser criado, com responsabilidade, relações e ordem de implementação.
 
-- **Baseline de código:** commit `a0dff77` (apenas `README.md` com alteração não commitada).
+- **Baseline de código:** verificado em **2026-11-01** por leitura dos arquivos; toda classe marcada como `existe` foi conferida no código, não presumida. Gates e dívida ficam em `docs/arch.md` §4 e §20.
 - **Autoridade de schema:** `docs/arch.md` §9.1. Este documento não decide schema — ele lista as classes que implementam aquele schema, na granularidade de um diagrama de classes.
 - **Autoridade de escopo funcional:** `notas/importante/sugestoes_mvp_portfy_temp_outubro_2026.md`.
 - **Autoridade de dívida e gates:** `docs/arch.md` §20 e §18. Não repetidos aqui.
