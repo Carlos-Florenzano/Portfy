@@ -113,21 +113,13 @@ public sealed class UsuarioService : IUsuarioService
     public Usuario? Autenticar(string login, string senha)
     {
         // Comparação do login é feita no SQL com COLLATE NOCASE (ver UsuarioConfiguration).
-        // A entidade é rastreada para permitir a atualização do hash legado abaixo.
-        Usuario? usuario = _db.Usuarios.FirstOrDefault(u => u.Login == login);
+        Usuario? usuario = _db.Usuarios
+            .AsNoTracking()
+            .FirstOrDefault(u => u.Login == login);
 
-        if (usuario is null || !_senhaHasher.Verificar(senha, usuario.SenhaHash))
-            return null;
-
-        // Hash de esquema anterior (PBKDF2) é substituído por BCrypt no primeiro
-        // login válido: a senha em texto puro só existe neste ponto do fluxo.
-        if (_senhaHasher.PrecisaAtualizar(usuario.SenhaHash))
-        {
-            usuario.AlterarSenhaHash(_senhaHasher.CriarHash(senha));
-            _db.SaveChanges();
-        }
-
-        return usuario;
+        return usuario is not null && _senhaHasher.Verificar(senha, usuario.SenhaHash)
+            ? usuario
+            : null;
     }
 
     public Usuario? VerificarConta(int id)

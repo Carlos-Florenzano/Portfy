@@ -1,5 +1,11 @@
+using System.Globalization;
+using System.Threading.RateLimiting;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Portfy.Data;
 using Portfy.Dtos.Usuario;
 using Portfy.Filters;
@@ -38,12 +44,81 @@ builder.Services.AddControllers(options => options.Filters.Add<FluentValidationF
 // Um validador por DTO, descobertos por assembly: sem registro manual por tipo.
 builder.Services.AddValidatorsFromAssemblyContaining<CadastroRequestValidator>();
 
+// Autenticação JWT (ADR-010). A chave vem de Auth:Jwt:Chave, nunca do repositório:
+// JwtConfiguracao.Ler falha no startup se ela estiver ausente ou curta demais.
+JwtConfiguracao jwt = JwtConfiguracao.Ler(builder.Configuration);
+builder.Services.AddSingleton(jwt);
+builder.Services.AddSingleton<IAuthService, AuthService>();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        // Sem mapeamento automático de claims: os controllers leem "sub" diretamente.
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwt.Emissor,
+            ValidateAudience = true,
+            ValidAudience = jwt.Audiencia,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = jwt.ChaveDeAssinatura,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30),
+        };
+    });
+builder.Services.AddAuthorization();
+
+// Rate limiting do login (P1-g): 10 tentativas por minuto por IP; a 11ª recebe
+// 429 com Retry-After, o que torna brute-force caro sem bloquear o cadastro.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy(PoliticasDeRateLimit.Login, contexto =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            contexto.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+    options.OnRejected = async (contexto, cancellationToken) =>
+    {
+        if (contexto.Lease.TryGetMetadata(MetadataName.RetryAfter, out TimeSpan retryAfter))
+        {
+            contexto.HttpContext.Response.Headers.RetryAfter = ((int)retryAfter.TotalSeconds)
+                .ToString(CultureInfo.InvariantCulture);
+        }
+
+        var problema = new ProblemDetails
+        {
+            Status = StatusCodes.Status429TooManyRequests,
+            Title = "Muitas tentativas.",
+            Detail = "Limite de tentativas de login excedido. Tente novamente em instantes.",
+            Instance = contexto.HttpContext.Request.Path,
+        };
+
+        await contexto.HttpContext.Response.WriteAsJsonAsync(
+            problema,
+            options: null,
+            contentType: "application/problem+json",
+            cancellationToken: cancellationToken);
+    };
+});
+
 // Injeção de dependência: cada controller depende de uma interface do namespace
 // Portfy.Services.Contracts, nunca de uma instância concreta. Todo serviço que usa
 // o AppDbContext é Scoped, acompanhando o ciclo de vida da requisição; o gerador
-// de variação e o hasher de senha, sem estado e sem banco, são Singleton.
+// de variação, o hasher de senha e a emissão de token, sem estado, são Singleton.
+int fatorDeTrabalho = builder.Configuration.GetValue(
+    "Auth:Senha:FatorDeTrabalho",
+    SenhaHasher.FatorDeTrabalhoPadrao);
+
 builder.Services.AddSingleton<IGeradorDeVariacao, GeradorDeVariacaoAleatoria>();
-builder.Services.AddSingleton<ISenhaHasher, SenhaHasher>();
+builder.Services.AddSingleton<ISenhaHasher>(new SenhaHasher(fatorDeTrabalho));
 builder.Services.AddScoped<IAtivoService, AtivoService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<ICarteiraService, CarteiraService>();
@@ -98,7 +173,14 @@ app.UseCors("AllowReactApp");
 // ProblemDetails, então nenhuma action precisa de try/catch.
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
+app.UseRateLimiter();
+
+// UseAuthentication antes de UseAuthorization: sem isso o token nunca é validado.
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Exposto para os testes de integração (WebApplicationFactory<Program>).
+public partial class Program;

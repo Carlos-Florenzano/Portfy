@@ -27,13 +27,21 @@ export interface CredenciaisLogin {
   senha: string;
 }
 
-// Confirmação devolvida pelo cadastro e pelo login do backend.
+// Confirmação devolvida pelo cadastro do backend.
 export interface UsuarioConfirmado {
   mensagem: string;
   id: number;
   nome: string;
   login: string;
   contaVerificada: boolean;
+}
+
+// Resposta do login: token JWT + dados do usuário (ADR-010).
+export interface LoginRealizado {
+  mensagem: string;
+  token: string;
+  expiraEm: string;
+  usuario: Usuario;
 }
 
 export interface ContaVerificada {
@@ -66,15 +74,9 @@ export const usuarioService = {
     return resposta.data;
   },
 
-  // READ (Obter utilizador por ID)
+  // READ (Obter utilizador por ID) — o id precisa ser o do token
   obterPorId: async (id: number): Promise<Usuario> => {
     const resposta = await api.get<Usuario>(`/usuario/${id}`);
-    return resposta.data;
-  },
-
-  // READ (Listar todos)
-  obterTodos: async (): Promise<Usuario[]> => {
-    const resposta = await api.get<Usuario[]>('/usuario');
     return resposta.data;
   },
 
@@ -90,9 +92,9 @@ export const usuarioService = {
     return resposta.data;
   },
 
-  // Login
-  login: async (credenciais: CredenciaisLogin): Promise<UsuarioConfirmado> => {
-    const resposta = await api.post<UsuarioConfirmado>('/usuario/login', credenciais);
+  // Login: devolve o token que `api.ts` passa a enviar em toda requisição.
+  login: async (credenciais: CredenciaisLogin): Promise<LoginRealizado> => {
+    const resposta = await api.post<LoginRealizado>('/usuario/login', credenciais);
     return resposta.data;
   }
 };

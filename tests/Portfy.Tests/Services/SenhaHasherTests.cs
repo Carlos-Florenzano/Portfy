@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Portfy.Services;
 
 namespace Portfy.Tests.Services;
@@ -31,41 +30,28 @@ public class SenhaHasherTests
     }
 
     [Fact]
-    public void Verificar_AceitaHashLegadoPbkdf2()
+    public void CriarHash_UsaOFatorDeTrabalhoConfigurado()
     {
-        string hashLegado = CriarHashLegado("segredo123");
+        var hasher = new SenhaHasher(11);
 
-        Assert.True(_hasher.Verificar("segredo123", hashLegado));
-        Assert.False(_hasher.Verificar("outra-senha", hashLegado));
+        // Formato BCrypt: $2a$<fator>$<salt+hash>.
+        Assert.StartsWith("$2a$11$", hasher.CriarHash("segredo123"));
     }
 
     [Fact]
-    public void Verificar_RecusaHashMalformadoSemLancarExcecao()
+    public void Construtor_RecusaFatorDeTrabalhoForaDaFaixa()
     {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SenhaHasher(9));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SenhaHasher(15));
+    }
+
+    [Fact]
+    public void Verificar_RecusaQualquerHashForaDoFormatoBcrypt()
+    {
+        // Sem ponte para esquemas anteriores: hash estranho é credencial inválida.
         Assert.False(_hasher.Verificar("segredo123", "nao-e-hash"));
-        Assert.False(_hasher.Verificar("segredo123", "base64-invalido:base64-invalido"));
+        Assert.False(_hasher.Verificar("segredo123", "c2FsdA==:aGFzaA=="));
         Assert.False(_hasher.Verificar("segredo123", "$2a$12$hash-truncado"));
-    }
-
-    [Fact]
-    public void PrecisaAtualizar_SoParaHashLegado()
-    {
-        Assert.False(_hasher.PrecisaAtualizar(_hasher.CriarHash("segredo123")));
-        Assert.True(_hasher.PrecisaAtualizar(CriarHashLegado("segredo123")));
-        Assert.True(_hasher.PrecisaAtualizar(string.Empty));
-    }
-
-    private static string CriarHashLegado(string senha)
-    {
-        byte[] salt = RandomNumberGenerator.GetBytes(16);
-
-        byte[] hash = Rfc2898DeriveBytes.Pbkdf2(
-            senha,
-            salt,
-            100_000,
-            HashAlgorithmName.SHA256,
-            32);
-
-        return $"{Convert.ToBase64String(salt)}:{Convert.ToBase64String(hash)}";
+        Assert.False(_hasher.Verificar("segredo123", string.Empty));
     }
 }

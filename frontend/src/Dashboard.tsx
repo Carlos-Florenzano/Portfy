@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import "./Dashboard.css";
 import { mensagemDeErro } from "./services/api";
+import { lerSessao, limparSessao } from "./services/sessao";
 import { usuarioService } from "./services/UsuarioService";
 import type { Usuario } from "./services/UsuarioService";
 
@@ -9,31 +10,9 @@ interface Aviso {
   texto: string;
 }
 
-interface UsuarioLogado {
-  id: number;
-}
-
-// Lê a identificação salva no login. Conteúdo inválido é tratado como "sem sessão",
-// porque localStorage não é autenticação (docs/arch.md §9, item 5).
-function lerUsuarioLogado(): UsuarioLogado | null {
-  const dados = localStorage.getItem("usuarioLogado");
-
-  if (!dados) return null;
-
-  try {
-    const usuario: unknown = JSON.parse(dados);
-
-    if (typeof usuario === "object" && usuario !== null && "id" in usuario) {
-      const { id } = usuario as { id: unknown };
-
-      return typeof id === "number" ? { id } : null;
-    }
-
-    return null;
-  } catch {
-    // JSON corrompido: o usuário volta para o login em vez de derrubar a tela.
-    return null;
-  }
+// A identidade vem do token guardado no login; a API valida o token a cada chamada.
+function idDoUsuarioLogado(): number | null {
+  return lerSessao()?.usuario.id ?? null;
 }
 
 function Dashboard() {
@@ -58,14 +37,14 @@ function Dashboard() {
       setErro("");
       setAviso(null);
 
-      const usuarioLogado = lerUsuarioLogado();
+      const id = idDoUsuarioLogado();
 
-      if (!usuarioLogado) {
+      if (id === null) {
         setErro("Nenhum usuário logado. Faça login novamente.");
         return;
       }
 
-      const usuarioApi = await usuarioService.obterPorId(usuarioLogado.id);
+      const usuarioApi = await usuarioService.obterPorId(id);
       setUsuario(usuarioApi);
       setNovoNome(usuarioApi.nome);
       setNovoSalario(usuarioApi.salarioMensal.toString());
@@ -108,11 +87,16 @@ function Dashboard() {
 
     try {
       await usuarioService.excluir(usuario.id);
-      localStorage.removeItem("usuarioLogado");
+      limparSessao();
       window.location.reload(); // Redireciona de volta para a tela de login
     } catch (falha: unknown) {
       setAviso({ tipo: "erro", texto: mensagemDeErro(falha) });
     }
+  }
+
+  function sair() {
+    limparSessao();
+    window.location.reload();
   }
 
   function formatarMoeda(valor: number) {
@@ -157,6 +141,12 @@ function Dashboard() {
         </nav>
 
         <div className="sidebar-footer">
+          <button
+            onClick={sair}
+            style={{ background: "transparent", border: "none", color: "#007acc", cursor: "pointer", fontSize: "0.85rem" }}
+          >
+            Sair
+          </button>
           <button 
             onClick={encerrarConta}
             style={{ background: "transparent", border: "none", color: "#e63946", cursor: "pointer", fontSize: "0.85rem" }}

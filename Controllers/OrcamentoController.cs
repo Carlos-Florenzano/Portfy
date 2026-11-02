@@ -1,12 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Portfy.Dtos.Orcamento;
 using Portfy.Models;
 using Portfy.Services.Contracts;
 
 namespace Portfy.Controllers;
 
-// [ApiController] ativa utilidades REST; [Route] define api/<nome do recurso>.
 // O orçamento é lido e alterado pelo IOrcamentoService, nunca por campo estático local.
+// Dado financeiro do usuário autenticado: exigir token em todos os verbos (ADR-010).
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class OrcamentoController : ControllerBase
 {
@@ -18,26 +21,20 @@ public class OrcamentoController : ControllerBase
             ?? throw new ArgumentNullException(nameof(orcamentoService));
     }
 
-    // DTO de entrada para registrar uma nova despesa.
-    public class AdicionarDespesaRequest
-    {
-        public decimal Valor { get; set; }
-    }
-
     // GET: api/orcamento
     [HttpGet]
     public IActionResult ObterOrcamento()
     {
-        var orcamento = _orcamentoService.ObterOrcamento();
+        Orcamento orcamento = _orcamentoService.ObterOrcamento();
 
-        return Ok(new
+        return Ok(new OrcamentoResponse
         {
-            orcamento.NomeCategoria,
-            orcamento.LimiteDefinido,
-            orcamento.ValorGastoAtual,
-            orcamento.PercentualDoSalario,
+            NomeCategoria = orcamento.NomeCategoria,
+            LimiteDefinido = orcamento.LimiteDefinido,
+            ValorGastoAtual = orcamento.ValorGastoAtual,
+            PercentualDoSalario = orcamento.PercentualDoSalario,
             SaldoRestante = orcamento.ObterSaldoRestante(),
-            Estourado = orcamento.ValidarEstouroOrcamento()
+            Estourado = orcamento.ValidarEstouroOrcamento(),
         });
     }
 
@@ -45,27 +42,17 @@ public class OrcamentoController : ControllerBase
     [HttpPost("despesa")]
     public IActionResult AdicionarDespesa([FromBody] AdicionarDespesaRequest request)
     {
-        if (request.Valor <= 0)
-            return BadRequest(new { Mensagem = "O valor da despesa deve ser maior que zero." });
+        _orcamentoService.AdicionarDespesa(request.Valor);
 
-        try
+        Orcamento orcamento = _orcamentoService.ObterOrcamento();
+
+        return Ok(new AdicionarDespesaResponse
         {
-            _orcamentoService.AdicionarDespesa(request.Valor);
-
-            var orcamento = _orcamentoService.ObterOrcamento();
-
-            return Ok(new
-            {
-                Mensagem = "Despesa adicionada com sucesso!",
-                orcamento.NomeCategoria,
-                orcamento.ValorGastoAtual,
-                SaldoRestante = orcamento.ObterSaldoRestante(),
-                Estourado = orcamento.ValidarEstouroOrcamento()
-            });
-        }
-        catch (ArgumentOutOfRangeException ex)
-        {
-            return BadRequest(new { Mensagem = ex.Message });
-        }
+            Mensagem = "Despesa adicionada com sucesso!",
+            NomeCategoria = orcamento.NomeCategoria,
+            ValorGastoAtual = orcamento.ValorGastoAtual,
+            SaldoRestante = orcamento.ObterSaldoRestante(),
+            Estourado = orcamento.ValidarEstouroOrcamento(),
+        });
     }
 }

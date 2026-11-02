@@ -1,4 +1,7 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Portfy.Dtos.Usuario;
 using Portfy.Models;
 using Portfy.Services.Contracts;
@@ -8,21 +11,27 @@ namespace Portfy.Controllers;
 // Borda HTTP do CRUD de usuários. Nenhum estado fica aqui: os dados vivem no
 // SQLite via IUsuarioService, injetado pelo container (ver Program.cs).
 // Validação de forma → FluentValidationFilter; exceção → ExceptionHandlingMiddleware.
+// Autorização: todo endpoint exige token, exceto cadastro, login e verificação de
+// conta (esta última é chamada pelo fluxo de cadastro ainda sem sessão).
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class UsuarioController : ControllerBase
 {
     private readonly IUsuarioService _usuarioService;
+    private readonly IAuthService _authService;
 
-    public UsuarioController(IUsuarioService usuarioService)
+    public UsuarioController(IUsuarioService usuarioService, IAuthService authService)
     {
         _usuarioService = usuarioService ?? throw new ArgumentNullException(nameof(usuarioService));
+        _authService = authService ?? throw new ArgumentNullException(nameof(authService));
     }
 
     #region 1. CREATE (Cadastro)
 
     // POST: api/usuario/cadastro
     [HttpPost("cadastro")]
+    [AllowAnonymous]
     public IActionResult Cadastrar([FromBody] CadastroRequest request)
     {
         if (_usuarioService.LoginJaExiste(request.Login))
@@ -45,22 +54,31 @@ public class UsuarioController : ControllerBase
 
     #region 2. READ (Consultas)
 
-    // GET: api/usuario
+    // GET: api/usuario — devolve apenas o usuário do token. A listagem global
+    // vazaria salário de terceiros e só fará sentido com papel de administrador.
     [HttpGet]
-    public IActionResult ObterTodos()
+    public IActionResult ObterProprioUsuario()
     {
-        IReadOnlyCollection<UsuarioResponse> usuarios = _usuarioService
-            .ObterTodos()
-            .Select(MapearUsuario)
-            .ToList();
+        int? id = IdDoToken();
 
-        return Ok(usuarios);
+        if (id is null)
+            return Forbid();
+
+        Usuario? usuario = _usuarioService.ObterPorId(id.Value);
+
+        if (usuario is null)
+            return UsuarioNaoEncontrado();
+
+        return Ok(MapearUsuario(usuario));
     }
 
     // GET: api/usuario/{id}
     [HttpGet("{id}")]
     public IActionResult ObterPorId(int id)
     {
+        if (id != IdDoToken())
+            return Forbid();
+
         Usuario? usuario = _usuarioService.ObterPorId(id);
 
         if (usuario is null)
@@ -77,6 +95,9 @@ public class UsuarioController : ControllerBase
     [HttpPut("{id}")]
     public IActionResult AtualizarUsuario(int id, [FromBody] AtualizarUsuarioRequest request)
     {
+        if (id != IdDoToken())
+            return Forbid();
+
         Usuario? usuario = _usuarioService.AtualizarDados(id, request.Nome, request.SalarioMensal);
 
         if (usuario is null)
@@ -95,6 +116,9 @@ public class UsuarioController : ControllerBase
     [HttpPut("{id}/salario")]
     public IActionResult AtualizarSalario(int id, [FromBody] AtualizarSalarioRequest request)
     {
+        if (id != IdDoToken())
+            return Forbid();
+
         Usuario? usuario = _usuarioService.ObterPorId(id);
 
         if (usuario is null)
@@ -119,6 +143,9 @@ public class UsuarioController : ControllerBase
     [HttpPut("{id}/senha")]
     public IActionResult AlterarSenha(int id, [FromBody] AlterarSenhaRequest request)
     {
+        if (id != IdDoToken())
+            return Forbid();
+
         Usuario? usuario = _usuarioService.AlterarSenha(id, request.SenhaAtual, request.NovaSenha);
 
         if (usuario is null)
@@ -135,6 +162,9 @@ public class UsuarioController : ControllerBase
     [HttpDelete("{id}")]
     public IActionResult ExcluirUsuario(int id)
     {
+        if (id != IdDoToken())
+            return Forbid();
+
         Usuario? removido = _usuarioService.Excluir(id);
 
         if (removido is null)
@@ -150,8 +180,10 @@ public class UsuarioController : ControllerBase
 
     #region Ações de Autenticação / Conta
 
-    // POST: api/usuario/login
+    // POST: api/usuario/login — emite o JWT consumido pelo SPA (ADR-010).
     [HttpPost("login")]
+    [AllowAnonymous]
+    [EnableRateLimiting(PoliticasDeRateLimit.Login)]
     public IActionResult Login([FromBody] LoginRequest request)
     {
         Usuario? usuario = _usuarioService.Autenticar(request.Login, request.Senha);
@@ -162,11 +194,20 @@ public class UsuarioController : ControllerBase
         if (!usuario.ContaVerificada)
             return Problem(statusCode: StatusCodes.Status401Unauthorized, detail: "A conta ainda não foi verificada.");
 
-        return Ok(MapearConfirmado(usuario, "Login realizado com sucesso!"));
+        TokenAcesso acesso = _authService.GerarToken(usuario);
+
+        return Ok(new LoginResponse
+        {
+            Mensagem = "Login realizado com sucesso!",
+            Token = acesso.Token,
+            ExpiraEm = acesso.ExpiraEm,
+            Usuario = MapearUsuario(usuario),
+        });
     }
 
-    // POST: api/usuario/{id}/verificar
+    // POST: api/usuario/{id}/verificar — usado pelo fluxo de cadastro, ainda sem sessão.
     [HttpPost("{id}/verificar")]
+    [AllowAnonymous]
     public IActionResult VerificarConta(int id)
     {
         Usuario? usuario = _usuarioService.VerificarConta(id);
@@ -205,4 +246,8 @@ public class UsuarioController : ControllerBase
 
     private ObjectResult UsuarioNaoEncontrado() =>
         Problem(statusCode: StatusCodes.Status404NotFound, detail: "Usuário não encontrado.");
+
+    // Identidade vem do token, nunca do id da URL (arch E1.2, item 4).
+    private int? IdDoToken() =>
+        int.TryParse(User.FindFirstValue(ClaimsPortfy.Identificador), out int id) ? id : null;
 }

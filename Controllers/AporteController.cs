@@ -1,12 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Portfy.Dtos.Aporte;
 using Portfy.Models;
 using Portfy.Services.Contracts;
 
 namespace Portfy.Controllers;
 
-// [ApiController] ativa a validação automática de payload; [Route] define api/<recurso>.
 // A criação do aporte (com a geração do Id) é do IAporteService, injetado.
+// Aporte é dado financeiro do usuário autenticado: exige token (ADR-010).
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class AporteController : ControllerBase
 {
@@ -17,38 +20,24 @@ public class AporteController : ControllerBase
         _aporteService = aporteService ?? throw new ArgumentNullException(nameof(aporteService));
     }
 
-    // DTO de entrada: precisa de set público porque quem preenche é o desserializador de JSON.
-    public class AporteRequest
-    {
-        public decimal Valor { get; set; }
-        public int OrigemSalarioId { get; set; }
-    }
-
     // POST: api/aporte
     [HttpPost]
     public IActionResult AdicionarAporte([FromBody] AporteRequest request)
     {
-        if (request.Valor <= 0)
-            return BadRequest(new { Mensagem = "O valor do aporte deve ser maior que zero." });
+        // Origem do salário inexistente: o serviço valida a integridade referencial
+        // e lança ArgumentException, traduzida em 400 pelo ExceptionHandlingMiddleware.
+        AporteSimulado novoAporte = _aporteService.Criar(request.Valor, request.OrigemSalarioId);
 
-        if (request.OrigemSalarioId <= 0)
-            return BadRequest(new { Mensagem = "O ID da origem do salário deve ser um número positivo." });
-
-        try
+        return Ok(new CriarAporteResponse
         {
-            var novoAporte = _aporteService.Criar(request.Valor, request.OrigemSalarioId);
-
-            return Ok(new
+            Mensagem = "Aporte realizado com sucesso!",
+            Aporte = new AporteResponse
             {
-                Mensagem = "Aporte realizado com sucesso!",
-                Aporte = novoAporte
-            });
-        }
-        catch (ArgumentException ex)
-        {
-            // Origem do salário inexistente: a integridade referencial do banco
-            // é validada no serviço, que devolve erro de domínio em vez de 500.
-            return BadRequest(new { Mensagem = ex.Message });
-        }
+                Id = novoAporte.Id,
+                DataAporte = novoAporte.DataAporte,
+                ValorAportado = novoAporte.ValorAportado,
+                OrigemSalarioId = novoAporte.OrigemSalarioId,
+            },
+        });
     }
 }

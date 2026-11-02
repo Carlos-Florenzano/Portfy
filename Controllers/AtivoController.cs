@@ -1,12 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Portfy.Dtos.Ativo;
 using Portfy.Models;
 using Portfy.Services;
 using Portfy.Services.Contracts;
 
 namespace Portfy.Controllers;
 
-// [ApiController] ativa validação automática e respostas de erro no padrão RFC 7807.
-// O catálogo e a simulação de preço vivem no IAtivoService, injetado pelo container.
+// O catálogo é público (leitura); a simulação altera preço persistido e exige token.
 [ApiController]
 [Route("api/[controller]")]
 public class AtivoController : ControllerBase
@@ -18,25 +19,10 @@ public class AtivoController : ControllerBase
         _ativoService = ativoService ?? throw new ArgumentNullException(nameof(ativoService));
     }
 
-    // DTO de entrada: aceita um percentual opcional na simulação.
-    public class SimularVariacaoRequest
-    {
-        public decimal? PercentualCustomizado { get; set; }
-    }
-
     // GET: api/ativo
     [HttpGet]
-    public IActionResult ObterAtivos()
-    {
-        return Ok(_ativoService.ObterTodos().Select(a => new
-        {
-            a.Ticker,
-            a.Nome,
-            Tipo = a.Tipo.ToString(),
-            a.PrecoAtual,
-            a.RentabilidadeAcumulada
-        }));
-    }
+    public IActionResult ObterAtivos() =>
+        Ok(_ativoService.ObterTodos().Select(MapearAtivo).ToList());
 
     // GET: api/ativo/{ticker}
     [HttpGet("{ticker}")]
@@ -45,40 +31,41 @@ public class AtivoController : ControllerBase
         Ativo? ativo = _ativoService.ObterPorTicker(ticker);
 
         if (ativo is null)
-            return NotFound(new { Mensagem = $"Ativo com o ticker '{ticker}' não foi encontrado no catálogo." });
+            return AtivoNaoEncontrado(ticker);
 
-        return Ok(new
-        {
-            ativo.Ticker,
-            ativo.Nome,
-            Tipo = ativo.Tipo.ToString(),
-            ativo.PrecoAtual,
-            ativo.RentabilidadeAcumulada
-        });
+        return Ok(MapearAtivo(ativo));
     }
 
     // POST: api/ativo/{ticker}/simular
     [HttpPost("{ticker}/simular")]
+    [Authorize]
     public IActionResult SimularVariacao(string ticker, [FromBody] SimularVariacaoRequest? request)
     {
-        try
-        {
-            VariacaoSimulada? variacao = _ativoService.SimularVariacao(ticker, request?.PercentualCustomizado);
+        VariacaoSimulada? variacao = _ativoService.SimularVariacao(ticker, request?.PercentualCustomizado);
 
-            if (variacao is null)
-                return NotFound(new { Mensagem = $"Ativo com o ticker '{ticker}' não foi encontrado no catálogo." });
+        if (variacao is null)
+            return AtivoNaoEncontrado(ticker);
 
-            return Ok(new
-            {
-                Mensagem = $"Simulação de variação executada com sucesso para {variacao.Ativo.Ticker}!",
-                variacao.PrecoAnterior,
-                NovoPreco = variacao.Ativo.PrecoAtual,
-                variacao.Ativo.RentabilidadeAcumulada
-            });
-        }
-        catch (ArgumentException ex)
+        return Ok(new SimulacaoVariacaoResponse
         {
-            return BadRequest(new { Mensagem = ex.Message });
-        }
+            Mensagem = $"Simulação de variação executada com sucesso para {variacao.Ativo.Ticker}!",
+            PrecoAnterior = variacao.PrecoAnterior,
+            NovoPreco = variacao.Ativo.PrecoAtual,
+            RentabilidadeAcumulada = variacao.Ativo.RentabilidadeAcumulada,
+        });
     }
+
+    private AtivoResponse MapearAtivo(Ativo ativo) => new()
+    {
+        Ticker = ativo.Ticker,
+        Nome = ativo.Nome,
+        Tipo = ativo.Tipo.ToString(),
+        PrecoAtual = ativo.PrecoAtual,
+        RentabilidadeAcumulada = ativo.RentabilidadeAcumulada,
+    };
+
+    private ObjectResult AtivoNaoEncontrado(string ticker) =>
+        Problem(
+            statusCode: StatusCodes.Status404NotFound,
+            detail: $"Ativo com o ticker '{ticker}' não foi encontrado no catálogo.");
 }
