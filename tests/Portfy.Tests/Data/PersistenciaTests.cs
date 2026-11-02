@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Portfy.Data;
+using Portfy.Models;
 using Portfy.Services;
 using Portfy.Services.Contracts;
 
@@ -9,6 +10,9 @@ namespace Portfy.Tests.Data;
 /// Prova de persistência real: cada teste usa um AppDbContext novo sobre o MESMO banco
 /// SQLite em memória (equivalente a reiniciar a API). Se algum serviço voltasse a guardar
 /// estado em coleção C#, estas asserções falhariam na segunda leitura.
+///
+/// Depois da migration PosseDaCarteira, carteira e orçamento pertencem ao usuário:
+/// os testes criam a conta e leem os dados pelo id do dono, nunca por um Id global.
 public class PersistenciaTests : IDisposable
 {
     private readonly SqliteConnection _conexao;
@@ -19,13 +23,17 @@ public class PersistenciaTests : IDisposable
         _conexao.Open();
 
         using AppDbContext contexto = NovoContexto();
-        contexto.Database.Migrate(); // mesmo esquema e seed do portfy.db, criados por migration
+        contexto.Database.Migrate(); // mesmo esquema do portfy.db, criado por migration
     }
 
     public void Dispose() => _conexao.Dispose();
 
     private AppDbContext NovoContexto() =>
         new(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_conexao).Options);
+
+    private static Usuario CriarUsuario(AppDbContext contexto, string login) =>
+        new UsuarioService(contexto, new SenhaHasher())
+            .Cadastrar("Ana", 3000m, login, "segredo123");
 
     private sealed class GeradorFixo : IGeradorDeVariacao
     {
@@ -40,9 +48,7 @@ public class PersistenciaTests : IDisposable
 
         using (AppDbContext contexto = NovoContexto())
         {
-            id = new UsuarioService(contexto, new SenhaHasher())
-                .Cadastrar("Ana", 3000m, "ana@portfy.test", "segredo123")
-                .Id;
+            id = CriarUsuario(contexto, "ana@portfy.test").Id;
         }
 
         using (AppDbContext contexto = NovoContexto())
@@ -103,9 +109,13 @@ public class PersistenciaTests : IDisposable
     [Fact]
     public void PosicoesDaCarteira_SaoPersistidasERecarregadas()
     {
+        int usuarioId;
+
         using (AppDbContext contexto = NovoContexto())
         {
-            var carteira = new CarteiraService(contexto).ObterCarteira();
+            usuarioId = CriarUsuario(contexto, "ana@portfy.test").Id;
+
+            var carteira = new CarteiraService(contexto).ObterCarteira(usuarioId);
             var petr4 = contexto.Ativos.Single(a => a.Ticker == "PETR4");
 
             carteira.ComprarAtivo(petr4, 10);
@@ -114,13 +124,86 @@ public class PersistenciaTests : IDisposable
 
         using (AppDbContext contexto = NovoContexto())
         {
-            var carteira = new CarteiraService(contexto).ObterCarteira();
+            var carteira = new CarteiraService(contexto).ObterCarteira(usuarioId);
             var posicao = Assert.Single(carteira.Posicoes);
 
             Assert.Equal(10, posicao.Quantidade);
             Assert.Equal(38.50m, posicao.PrecoMedio);
             Assert.Equal("PETR4", posicao.Ativo.Ticker);
             Assert.Equal(9615.00m, carteira.SaldoDisponivel);
+            Assert.Equal(usuarioId, carteira.UsuarioId);
+        }
+    }
+
+    [Fact]
+    public void CarteirasDeUsuariosDiferentes_NaoSeMisturam()
+    {
+        int anaId;
+        int brunoId;
+
+        using (AppDbContext contexto = NovoContexto())
+        {
+            anaId = CriarUsuario(contexto, "ana@portfy.test").Id;
+            brunoId = CriarUsuario(contexto, "bruno@portfy.test").Id;
+
+            var carteiraAna = new CarteiraService(contexto).ObterCarteira(anaId);
+            var petr4 = contexto.Ativos.Single(a => a.Ticker == "PETR4");
+
+            carteiraAna.ComprarAtivo(petr4, 10);
+            contexto.SaveChanges();
+        }
+
+        using (AppDbContext contexto = NovoContexto())
+        {
+            var service = new CarteiraService(contexto);
+
+            var carteiraAna = service.ObterCarteira(anaId);
+            var carteiraBruno = service.ObterCarteira(brunoId);
+
+            Assert.Single(carteiraAna.Posicoes);
+            Assert.Empty(carteiraBruno.Posicoes);
+            Assert.Equal(9615m, carteiraAna.SaldoDisponivel);
+            Assert.Equal(10000m, carteiraBruno.SaldoDisponivel);
+        }
+    }
+
+    [Fact]
+    public void CompraEVenda_AtualizamSaldoEPosicaoNoBanco()
+    {
+        int usuarioId;
+
+        using (AppDbContext contexto = NovoContexto())
+        {
+            usuarioId = CriarUsuario(contexto, "ana@portfy.test").Id;
+
+            var operacaoCompra = new CarteiraService(contexto).Comprar(usuarioId, "PETR4", 10);
+
+            Assert.NotNull(operacaoCompra);
+            Assert.Equal(385m, operacaoCompra!.ValorTotal);
+            Assert.Equal(9615m, operacaoCompra.Carteira.SaldoDisponivel);
+        }
+
+        using (AppDbContext contexto = NovoContexto())
+        {
+            var carteira = new CarteiraService(contexto).ObterCarteira(usuarioId);
+            Assert.Single(carteira.Posicoes);
+            Assert.Equal(9615m, carteira.SaldoDisponivel);
+        }
+
+        using (AppDbContext contexto = NovoContexto())
+        {
+            var operacaoVenda = new CarteiraService(contexto).Vender(usuarioId, "PETR4", 10);
+
+            Assert.NotNull(operacaoVenda);
+            Assert.Equal(10000m, operacaoVenda!.Carteira.SaldoDisponivel);
+            Assert.Empty(operacaoVenda.Carteira.Posicoes);
+        }
+
+        using (AppDbContext contexto = NovoContexto())
+        {
+            var carteira = new CarteiraService(contexto).ObterCarteira(usuarioId);
+            Assert.Empty(carteira.Posicoes);
+            Assert.Equal(10000m, carteira.SaldoDisponivel);
         }
     }
 
@@ -131,18 +214,19 @@ public class PersistenciaTests : IDisposable
 
         using (AppDbContext contexto = NovoContexto())
         {
-            usuarioId = new UsuarioService(contexto, new SenhaHasher())
-                .Cadastrar("Ana", 3000m, "ana@portfy.test", "segredo123")
-                .Id;
+            var aportes = new AporteService(contexto, new CarteiraService(contexto));
 
-            var aportes = new AporteService(contexto);
+            // Usuário inexistente: o serviço recusa antes de criar carteira órfã.
+            Assert.Throws<KeyNotFoundException>(() => aportes.Criar(999, 100m));
 
-            // Integridade referencial: origem do salário inexistente é recusada antes da escrita.
-            Assert.Throws<ArgumentException>(() => aportes.Criar(100m, origemSalarioId: 999));
+            usuarioId = CriarUsuario(contexto, "ana@portfy.test").Id;
 
-            var aporte = aportes.Criar(250m, usuarioId);
+            AporteRealizado realizado = aportes.Criar(usuarioId, 250m);
 
-            Assert.True(aporte.Id > 0);
+            Assert.True(realizado.Aporte.Id > 0);
+            Assert.Equal(usuarioId, realizado.Aporte.OrigemSalarioId);
+            Assert.Equal(10250m, realizado.SaldoDisponivel);
+            Assert.Equal(10250m, realizado.PatrimonioTotal);
         }
 
         using (AppDbContext contexto = NovoContexto())
@@ -151,7 +235,36 @@ public class PersistenciaTests : IDisposable
 
             Assert.Equal(250m, aporte.ValorAportado);
             Assert.Equal(usuarioId, aporte.OrigemSalarioId);
+            Assert.True(aporte.CarteiraId > 0);
             Assert.Equal(1, aporte.Id);
+
+            var carteira = new CarteiraService(contexto).ObterCarteira(usuarioId);
+            Assert.Equal(10250m, carteira.SaldoDisponivel);
+            Assert.Single(carteira.Aportes);
+        }
+    }
+
+    [Fact]
+    public void Orcamento_IsoladoPorUsuario()
+    {
+        int anaId;
+        int brunoId;
+
+        using (AppDbContext contexto = NovoContexto())
+        {
+            anaId = CriarUsuario(contexto, "ana@portfy.test").Id;
+            brunoId = CriarUsuario(contexto, "bruno@portfy.test").Id;
+
+            new OrcamentoService(contexto).AdicionarDespesa(anaId, 200m);
+        }
+
+        using (AppDbContext contexto = NovoContexto())
+        {
+            var service = new OrcamentoService(contexto);
+
+            Assert.Equal(200m, service.ObterOrcamento(anaId).ValorGastoAtual);
+            Assert.Equal(0m, service.ObterOrcamento(brunoId).ValorGastoAtual);
+            Assert.Equal("Alimentação", service.ObterOrcamento(brunoId).NomeCategoria);
         }
     }
 }

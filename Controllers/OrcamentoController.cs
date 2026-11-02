@@ -7,7 +7,7 @@ using Portfy.Services.Contracts;
 namespace Portfy.Controllers;
 
 // O orçamento é lido e alterado pelo IOrcamentoService, nunca por campo estático local.
-// Dado financeiro do usuário autenticado: exigir token em todos os verbos (ADR-010).
+// Dado financeiro do usuário autenticado (arch §9.1): o id do dono vem do token.
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
@@ -25,7 +25,12 @@ public class OrcamentoController : ControllerBase
     [HttpGet]
     public IActionResult ObterOrcamento()
     {
-        Orcamento orcamento = _orcamentoService.ObterOrcamento();
+        int? usuarioId = User.ObterUsuarioId();
+
+        if (usuarioId is null)
+            return Forbid();
+
+        Orcamento orcamento = _orcamentoService.ObterOrcamento(usuarioId.Value);
 
         return Ok(new OrcamentoResponse
         {
@@ -35,6 +40,7 @@ public class OrcamentoController : ControllerBase
             PercentualDoSalario = orcamento.PercentualDoSalario,
             SaldoRestante = orcamento.ObterSaldoRestante(),
             Estourado = orcamento.ValidarEstouroOrcamento(),
+            EhFixo = orcamento.EhFixo,
         });
     }
 
@@ -42,9 +48,14 @@ public class OrcamentoController : ControllerBase
     [HttpPost("despesa")]
     public IActionResult AdicionarDespesa([FromBody] AdicionarDespesaRequest request)
     {
-        _orcamentoService.AdicionarDespesa(request.Valor);
+        int? usuarioId = User.ObterUsuarioId();
 
-        Orcamento orcamento = _orcamentoService.ObterOrcamento();
+        if (usuarioId is null)
+            return Forbid();
+
+        _orcamentoService.AdicionarDespesa(usuarioId.Value, request.Valor);
+
+        Orcamento orcamento = _orcamentoService.ObterOrcamento(usuarioId.Value);
 
         return Ok(new AdicionarDespesaResponse
         {

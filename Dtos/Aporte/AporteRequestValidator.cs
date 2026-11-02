@@ -2,8 +2,8 @@ using FluentValidation;
 
 namespace Portfy.Dtos.Aporte;
 
-/// Regras de forma do aporte; a existência do usuário de origem é regra de
-/// negócio e continua no AporteService.
+/// Regras de forma do aporte; a posse da carteira e a existência do usuário são
+/// regras de negócio e continuam no AporteService.
 public sealed class AporteRequestValidator : AbstractValidator<AporteRequest>
 {
     public AporteRequestValidator()
@@ -11,7 +11,8 @@ public sealed class AporteRequestValidator : AbstractValidator<AporteRequest>
         RuleFor(requisicao => requisicao.Valor)
             .GreaterThan(0).WithMessage("O valor do aporte deve ser maior que zero.");
 
-        RuleFor(requisicao => requisicao.OrigemSalarioId)
-            .GreaterThan(0).WithMessage("O ID da origem do salário deve ser um número positivo.");
+        RuleFor(requisicao => requisicao.CarteiraId)
+            .GreaterThan(0).When(requisicao => requisicao.CarteiraId.HasValue)
+            .WithMessage("O ID da carteira deve ser um número positivo.");
     }
 }

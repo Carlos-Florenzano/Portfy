@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Portfy.Data;
+using Portfy.Data.Seed;
 using Portfy.Models;
 using Portfy.Services.Contracts;
 
@@ -8,6 +9,10 @@ namespace Portfy.Services;
 /// CRUD e autenticação de usuários sobre o SQLite via AppDbContext, dono único
 /// do estado (arch §9). Registrado como Scoped: a instância acompanha a requisição
 /// e o DbContext é descartado no fim dela.
+///
+/// O cadastro cria, na mesma transação, o usuário e os dados financeiros iniciais
+/// (carteira e orçamento). A exclusão remove todos os dados do usuário na mesma
+/// transação, para que nenhuma linha fique órfã.
 ///
 /// As operações são síncronas porque o contrato público (IUsuarioService e as
 /// actions dos controllers) é síncrono e é preservado como requisito: a suíte de
@@ -34,12 +39,31 @@ public sealed class UsuarioService : IUsuarioService
 
     public Usuario Cadastrar(string nome, decimal salarioMensal, string login, string senha)
     {
+        using var transacao = _db.Database.BeginTransaction();
+
         // O hash é calculado antes de tocar no domínio: o modelo nunca vê a
         // senha em texto puro (arch §13, item 5).
         var usuario = new Usuario(nome, salarioMensal, login, _senhaHasher.CriarHash(senha));
 
         _db.Usuarios.Add(usuario);
         _db.SaveChanges();
+
+        // Carteira e orçamento pertencem ao usuário (arch §9.1). Nascem junto com
+        // a conta para que o primeiro GET do SPA já encontre dados, sem depender
+        // de uma criação preguiçosa em uma requisição concorrente.
+        _db.CarteirasSimuladas.Add(new CarteiraSimulada(
+            usuario.Id,
+            SeedInicial.NomeCarteiraPadrao,
+            SeedInicial.SaldoInicialCarteira));
+
+        _db.Orcamentos.Add(new Orcamento(
+            usuario.Id,
+            SeedInicial.CategoriaPadrao,
+            SeedInicial.LimitePadrao,
+            SeedInicial.PercentualPadrao));
+
+        _db.SaveChanges();
+        transacao.Commit();
 
         return usuario;
     }
@@ -104,8 +128,34 @@ public sealed class UsuarioService : IUsuarioService
         if (usuario is null)
             return null;
 
+        using var transacao = _db.Database.BeginTransaction();
+
+        // A remoção da conta é uma decisão explícita do dono dos dados: apaga
+        // aportes, carteiras (com posições em cascade) e orçamentos antes do
+        // usuário, sem deixar linhas órfãs nem depender de cascade do banco.
+        _db.AportesSimulados
+            .Where(a => a.OrigemSalarioId == id)
+            .ExecuteDelete();
+
+        _db.CarteirasSimuladas
+            .Where(c => c.UsuarioId == id)
+            .ExecuteDelete();
+
+        _db.Orcamentos
+            .Where(o => o.UsuarioId == id)
+            .ExecuteDelete();
+
+        // As exclusões acima já removeram as linhas no banco. O ChangeTracker
+        // ainda mantém as entidades carregadas em memória; sem limpar, o EF
+        // tentaria apagá-las de novo no SaveChanges (cascade do usuário) e
+        // falharia com concorrência otimista. Limpar deixa só o usuário para
+        // o DELETE final desta transação.
+        _db.ChangeTracker.Clear();
+
         _db.Usuarios.Remove(usuario);
         _db.SaveChanges();
+
+        transacao.Commit();
 
         return usuario;
     }

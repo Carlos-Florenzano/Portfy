@@ -8,13 +8,17 @@ namespace Portfy.Data.Seed;
 /// alterações legítimas feitas depois (preço simulado, saldo, gasto do orçamento).
 /// Os valores abaixo são exatamente os que existiam em memória no catálogo do
 /// AtivoService e nos serviços de carteira e orçamento — nada foi inventado.
+///
+/// Carteira e orçamento NÃO entram mais no seed: eles pertencem a um usuário
+/// (arch §9.1) e são criados no cadastro, na mesma transação do usuário. As
+/// constantes abaixo definem os valores iniciais usados nessa criação.
 public static class SeedInicial
 {
-    public const int CarteiraPadraoId = 1;
-    public const int OrcamentoPadraoId = 1;
-
     // Saldo inicial que a CarteiraService criava em memória.
     public const decimal SaldoInicialCarteira = 10000m;
+
+    // Nome da primeira simulação de cada usuário.
+    public const string NomeCarteiraPadrao = "Principal";
 
     // Orçamento de exemplo que a OrcamentoService criava em memória.
     public const string CategoriaPadrao = "Alimentação";
@@ -63,19 +67,6 @@ public static class SeedInicial
                 PrecoAtual = 350000.00m,
                 RentabilidadeAcumulada = 0m,
                 TaxaStakingAnual = 0m
-            });
-
-        modelBuilder.Entity<CarteiraSimulada>().HasData(
-            new { Id = CarteiraPadraoId, SaldoDisponivel = SaldoInicialCarteira });
-
-        modelBuilder.Entity<Orcamento>().HasData(
-            new
-            {
-                Id = OrcamentoPadraoId,
-                NomeCategoria = CategoriaPadrao,
-                LimiteDefinido = LimitePadrao,
-                PercentualDoSalario = PercentualPadrao,
-                ValorGastoAtual = 0m
             });
     }
 }

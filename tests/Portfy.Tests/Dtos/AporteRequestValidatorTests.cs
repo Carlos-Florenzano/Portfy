@@ -8,27 +8,33 @@ public class AporteRequestValidatorTests
     private readonly AporteRequestValidator _validador = new();
 
     [Fact]
-    public void Aceita_ValorEOrigemPositivos()
+    public void Aceita_ValorECarteiraValidos()
     {
-        Assert.True(_validador.Validate(new AporteRequest { Valor = 100m, OrigemSalarioId = 1 }).IsValid);
+        Assert.True(_validador.Validate(new AporteRequest { Valor = 100m, CarteiraId = 1 }).IsValid);
+    }
+
+    [Fact]
+    public void Aceita_CarteiraOmitida()
+    {
+        Assert.True(_validador.Validate(new AporteRequest { Valor = 100m, CarteiraId = null }).IsValid);
     }
 
     [Fact]
     public void Recusa_ValorNaoPositivo()
     {
-        var resultado = _validador.Validate(new AporteRequest { Valor = 0m, OrigemSalarioId = 1 });
+        var resultado = _validador.Validate(new AporteRequest { Valor = 0m, CarteiraId = 1 });
 
         Assert.False(resultado.IsValid);
         Assert.Contains(resultado.Errors, falha => falha.PropertyName == nameof(AporteRequest.Valor));
     }
 
     [Fact]
-    public void Recusa_OrigemSalarioInvalida()
+    public void Recusa_CarteiraInvalida()
     {
-        var resultado = _validador.Validate(new AporteRequest { Valor = 100m, OrigemSalarioId = 0 });
+        var resultado = _validador.Validate(new AporteRequest { Valor = 100m, CarteiraId = 0 });
 
         Assert.False(resultado.IsValid);
-        Assert.Contains(resultado.Errors, falha => falha.PropertyName == nameof(AporteRequest.OrigemSalarioId));
+        Assert.Contains(resultado.Errors, falha => falha.PropertyName == nameof(AporteRequest.CarteiraId));
     }
 
     [Fact]

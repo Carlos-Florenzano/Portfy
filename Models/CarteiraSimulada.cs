@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 
 namespace Portfy.Models;
+
 public class CarteiraSimulada
 {
     // Objeto de sincronização para garantir Thread Safety em ambientes multithread
@@ -10,6 +11,13 @@ public class CarteiraSimulada
     // exatamente o contrato HTTP atual de GET api/carteira.
     [JsonIgnore]
     public int Id { get; private set; }
+
+    // Dono da carteira. É o que separa "minha carteira" de "a carteira" (arch §9.1).
+    [JsonIgnore]
+    public int UsuarioId { get; private set; }
+
+    // Nome da simulação. O usuário pode ter mais de uma carteira; a padrão é "Principal".
+    public string Nome { get; private set; } = string.Empty;
 
     // Propriedades com private set para integridade dos dados
     public decimal SaldoDisponivel { get; private set; }
@@ -41,17 +49,24 @@ public class CarteiraSimulada
         }
     }
 
-    // Construtores
-    public CarteiraSimulada()
+    // Construtor exigido pelo EF Core (arch §13.1) para materializar uma carteira persistida.
+    protected CarteiraSimulada()
     {
-        SaldoDisponivel = 0m;
     }
 
-    public CarteiraSimulada(decimal saldoInicial)
+    public CarteiraSimulada(int usuarioId, string nome, decimal saldoInicial)
     {
+        if (usuarioId <= 0)
+            throw new ArgumentException("O ID do usuário deve ser um valor positivo.", nameof(usuarioId));
+
+        if (string.IsNullOrWhiteSpace(nome))
+            throw new ArgumentException("O nome da carteira não pode ser vazio.", nameof(nome));
+
         if (saldoInicial < 0)
             throw new ArgumentException("O saldo inicial não pode ser negativo.", nameof(saldoInicial));
 
+        UsuarioId = usuarioId;
+        Nome = nome;
         SaldoDisponivel = saldoInicial;
     }
 
@@ -61,11 +76,15 @@ public class CarteiraSimulada
         if (aporte == null)
             throw new ArgumentNullException(nameof(aporte));
 
+        if (Id > 0 && aporte.CarteiraId != Id)
+            throw new ArgumentException(
+                "O aporte pertence a outra carteira.",
+                nameof(aporte));
 
         // O _lock trava um aporte por vez, de forma a livrar o problema de dois pedidos um em cada thread, que poderia
         //sobrescrever e apagar os dados de um deles, é uma ferramenta muito específica, mas necessária, de baixo nível do .NET.
         // É o famoso thread safety, que garante esse tipo de segurança, que é crucial ainda mais em dados financeiros.
-        lock (_lock) 
+        lock (_lock)
         {
             _aportes.Add(aporte);
             SaldoDisponivel += aporte.ValorAportado;
@@ -92,7 +111,9 @@ public class CarteiraSimulada
 
             if (posicao == null)
             {
-                _posicoes.Add(new Posicao(ativo, quantidade, ativo.PrecoAtual));
+                posicao = new Posicao(ativo, quantidade, ativo.PrecoAtual);
+                posicao.VincularCarteira(Id);
+                _posicoes.Add(posicao);
             }
             else
             {
@@ -150,6 +171,14 @@ public class Posicao
     [JsonIgnore]
     public int Id { get; private set; }
 
+    // Chaves estrangeiras explícitas (arch §9.1). As colunas do banco mantêm os
+    // nomes históricos (CarteiraSimuladaId/AtivoId) para não renomear dados existentes.
+    [JsonIgnore]
+    public int CarteiraId { get; private set; }
+
+    [JsonIgnore]
+    public int AtivoId { get; private set; }
+
     // Preenchido pelo EF Core; a posição só existe associada a um ativo persistido.
     public Ativo Ativo { get; private set; } = null!;
     public int Quantidade { get; private set; }
@@ -172,9 +201,13 @@ public class Posicao
             throw new ArgumentException("O preço médio deve ser um valor positivo.", nameof(precoMedio));
 
         Ativo = ativo;
+        AtivoId = ativo.Id;
         Quantidade = quantidade;
         PrecoMedio = precoMedio;
     }
+
+    // Chamado pela carteira ao criar a posição; o EF confirma as duas FKs no SaveChanges.
+    internal void VincularCarteira(int carteiraId) => CarteiraId = carteiraId;
 
     public void AtualizarPrecoMedioEQuantidade(int quantidadeAdicional, decimal precoAtual)
     {

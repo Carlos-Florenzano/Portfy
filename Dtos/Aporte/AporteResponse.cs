@@ -7,4 +7,5 @@ public sealed class AporteResponse
     public DateTime DataAporte { get; init; }
     public decimal ValorAportado { get; init; }
     public int OrigemSalarioId { get; init; }
+    public int CarteiraId { get; init; }
 }

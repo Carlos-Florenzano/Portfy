@@ -9,4 +9,5 @@ public sealed class OrcamentoResponse
     public decimal PercentualDoSalario { get; init; }
     public decimal SaldoRestante { get; init; }
     public bool Estourado { get; init; }
+    public bool EhFixo { get; init; }
 }

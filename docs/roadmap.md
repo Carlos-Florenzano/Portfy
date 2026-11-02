@@ -17,7 +17,7 @@ Sequência executável para levar o Portfy do estado atual até o MVP completo. 
 | Item | Situação |
 |---|---|
 | `dotnet build Portfy.csproj` | 0 erros, 0 warnings |
-| `dotnet test tests/Portfy.Tests` | 89 testes, 0 falhas |
+| `dotnet test tests/Portfy.Tests` | 89 testes na base `34f2657`; **170 testes, 0 falhas** em 2026-11-02, após a posse por usuário |
 | `npm run build` / `npm run lint` | verdes / 0 erros |
 | Persistência | SQLite + EF Core, migration `InitialCreate`, 7 `Configurations`, seed idempotente |
 | Autoridade de estado | única (`AppDbContext`); zero `private static` em `Controllers`/`Services` |
@@ -53,7 +53,7 @@ Sequência executável para levar o Portfy do estado atual até o MVP completo. 
 | **F5** | Leitura e interface | relatório por DTO, indicador, telas e gráfico | F3, F4 |
 | **F6** | Operação e entrega | CORS por config, CI, Docker, higiene final | F5 |
 
-Status atual: **F1/E1.1 concluída** (hash de senha em BCrypt); **E0.1 e E0.2 parciais** (recurso usuário); demais pendentes.
+Status atual (2026-11-02): **F1/E1.1–E1.3 concluídas** (BCrypt, JWT e rate limit); **E2.1 concluída**, **E2.2 parcial** (leitura e operações por usuário; CRUD de múltiplas carteiras pendente), **E3.1–E3.3 concluídas**; E0.1/E0.2 parciais (recurso usuário); demais pendentes.
 
 ---
 
@@ -204,11 +204,12 @@ Hoje qualquer cliente alcança qualquer `id` e o login não emite credencial (`a
 
 ### F2 — Posse e múltiplas simulações
 
-O delta de modelagem da onda 1 (`diagrama-classe-candidatas.md` §3). Sem ele não existe "minha carteira", só "a carteira".
+O delta de modelagem da onda 1 (`diagrama-classe-candidatas.md` §3). Sem ele não existe "minha carteira", só "a carteira". **Resolvido em 2026-11-02** para leitura e operações: cada usuário tem a sua carteira `Principal` e o seu orçamento; o CRUD de múltiplas carteiras segue pendente em E2.2.
 
-#### E2.1 — Migration de posse
+#### E2.1 — Migration de posse — ✅ executado em 2026-11-02
 
 - **Depende:** F1 · **Fecha:** `arch.md` §9.1, onda 1
+- **Executado:** migration `20261102210612_PosseDaCarteira`; backfill testado em banco limpo, banco antigo com dois usuários/posição/aportes e banco antigo sem usuários. O seed passou a conter apenas os ativos; carteira e orçamento nascem no cadastro.
 - **Arquivos:** `Models/CarteiraSimulada.cs`, `Models/AporteSimulado.cs`, `Models/Orcamento.cs`, `Data/Configurations/*`, `Data/Migrations/*`
 - **Passos:**
   1. `CarteiraSimulada`: `UsuarioId`, `Nome`.
@@ -220,14 +221,15 @@ O delta de modelagem da onda 1 (`diagrama-classe-candidatas.md` §3). Sem ele n�
 - **Aceite:** banco novo e banco existente sobem sem erro; `Posicoes` e `Aportes` com FK não nula.
 - **Gate:** `dotnet build` + `dotnet test` + `database update` nos dois cenários.
 
-#### E2.2 — Carteira por usuário e CRUD
+#### E2.2 — Carteira por usuário e CRUD — ⚠ parcial em 2026-11-02
 
 - **Depende:** E2.1 · **Fecha:** `arch.md` §2.2 (múltiplas simulações)
+- **Executado:** `ICarteiraService` recebe `usuarioId`; `GET /api/carteira` é por usuário; teste de isolamento em `PersistenciaTests` e `CarteiraApiTests`. **Pendente:** `POST/PUT/DELETE api/carteiras` para múltiplas simulações (o modelo já tem `Nome` e índice único por usuário).
 - **Arquivos:** `Services/CarteiraService.cs`, `Services/Contracts/ICarteiraService.cs`, `Controllers/CarteiraController.cs`, `Dtos/Carteira/*`
 - **Passos:**
   1. `ICarteiraService` passa a receber `usuarioId`.
   2. `GET/POST/PUT/DELETE api/carteiras` — criação com saldo inicial, renomeação, exclusão com confirmação de regra.
-  3. Remover dependência de `SeedInicial.CarteiraPadraoId` no caminho de leitura.
+  3. ✅ Remover dependência de `SeedInicial.CarteiraPadraoId` no caminho de leitura (feito em 2026-11-02).
   4. Teste de isolamento: usuário A não enxerga carteira de B.
 - **Aceite:** dois usuários com carteiras distintas; carteira de outro usuário responde `404`/`403`.
 - **Gate:** `dotnet test` + smoke por usuário.
@@ -247,11 +249,12 @@ O delta de modelagem da onda 1 (`diagrama-classe-candidatas.md` §3). Sem ele n�
 
 ### F3 — Carteira operável por HTTP
 
-O buraco mais grave do produto: `ComprarAtivo`/`VenderAtivo` existem, são testados e **nenhum endpoint os chama** (`diagrama.md` §11, item 1). Aporte também não altera saldo (§11, item 2).
+**Resolvido em 2026-11-02:** `POST /api/carteira/compras` e `POST /api/carteira/vendas` chamam `ComprarAtivo`/`VenderAtivo`, e `POST /api/aporte` soma ao saldo na mesma transação. O dono vem sempre do token; o endpoint não recebe id de usuário.
 
-#### E3.1 — Endpoint de compra
+#### E3.1 — Endpoint de compra — ✅ executado em 2026-11-02
 
 - **Depende:** F2 · **Fecha:** funcionalidade central ausente
+- **Executado:** `POST /api/carteira/compras` com `{ ticker, quantidade }`; a carteira é resolvida pelo usuário do token (não pela URL). Testes em `CarteiraApiTests` e `PersistenciaTests`.
 - **Arquivos:** `Services/Contracts/ICarteiraService.cs`, `Services/CarteiraService.cs`, `Controllers/CarteiraController.cs`, `Dtos/Carteira/CompraRequest.cs`
 - **Passos:**
   1. `POST api/carteiras/{id}/compras` com `ticker` e `quantidade`.
@@ -261,9 +264,10 @@ O buraco mais grave do produto: `ComprarAtivo`/`VenderAtivo` existem, são testa
 - **Aceite:** `200`/`201` com posição criada; segunda compra recalcula preço médio; saldo insuficiente → `422`.
 - **Gate:** `dotnet test` + smoke real.
 
-#### E3.2 — Endpoint de venda
+#### E3.2 — Endpoint de venda — ✅ executado em 2026-11-02
 
 - **Depende:** E3.1 · **Fecha:** simetria da operação
+- **Executado:** `POST /api/carteira/vendas`, simétrico à compra; venda que zera a posição remove a linha.
 - **Passos:**
   1. `POST api/carteiras/{id}/vendas` simétrico à compra.
   2. Venda zera posição → posição removida.
@@ -271,9 +275,10 @@ O buraco mais grave do produto: `ComprarAtivo`/`VenderAtivo` existem, são testa
 - **Aceite:** saldo aumenta; posição zerada desaparece.
 - **Gate:** `dotnet test`.
 
-#### E3.3 — Aporte alimentando a carteira
+#### E3.3 — Aporte alimentando a carteira — ✅ executado em 2026-11-02
 
 - **Depende:** E2.1 · **Fecha:** `diagrama.md` §11, item 2
+- **Executado:** `AporteService.Criar(usuarioId, valor, carteiraId?)` chama `CarteiraSimulada.AdicionarAporte` e grava aporte + saldo no mesmo `SaveChanges`. `OrigemSalarioId` foi mantido para não quebrar o contrato; a renomeação para `UsuarioId` fica como decisão futura de `diagrama-classe-candidatas.md`.
 - **Arquivos:** `Services/AporteService.cs`, `Controllers/AporteController.cs`, `Dtos/Aporte/*`
 - **Passos:**
   1. `AporteService.Criar` passa a receber `carteiraId` e chamar `CarteiraSimulada.AdicionarAporte`.
@@ -464,12 +469,12 @@ Até aqui a API sabe fazer; o produto ainda não mostra. Esta fase fecha o funil
 | E1.2 | P1-a | — |
 | E1.3 | P1-g | — |
 | E1.4 | — | sessão, cabeçalho e logout no SPA |
-| E2.1 | — | múltiplas simulações (base) |
-| E2.2 | — | seletor de perfil |
+| E2.1 | — | ✅ 2026-11-02 — migration `PosseDaCarteira` |
+| E2.2 | — | ⚠ 2026-11-02 — leitura e operações por usuário; CRUD de múltiplas carteiras pendente |
 | E2.3 | — | clonagem de simulação |
-| E3.1 | — | compra de ativos por HTTP |
-| E3.2 | — | venda de ativos por HTTP |
-| E3.3 | — | aporte afetando a carteira |
+| E3.1 | — | ✅ 2026-11-02 — compra de ativos por HTTP |
+| E3.2 | — | ✅ 2026-11-02 — venda de ativos por HTTP |
+| E3.3 | — | ✅ 2026-11-02 — aporte afetando a carteira |
 | E4.1 | — | alocação-meta (pizza) |
 | E4.2 | — | rebalanceamento automático |
 | E4.3 | — | simulador "e se?" |
@@ -507,7 +512,7 @@ Toda etapa, sem exceção (`arch.md` §21):
 |---|---|---|
 | E1.2 | Ativar `[Authorize]` quebra o SPA que não envia token | Fazer E1.4 no **mesmo** PR; liberar Swagger em Development |
 | E2.1 | Migration em banco já em uso deixa FK nula | Backfill antes de tornar `CarteiraId` obrigatório: atribuir a carteira padrão ao usuário existente |
-| E2.1 | Seed com `UsuarioId` fixo quebra em instalação nova | Seed cria usuário e carteira na mesma migration |
+| E2.1 | Seed com `UsuarioId` fixo quebra em instalação nova | Seed contém só ativos; usuários existentes recebem carteira/orçamento no backfill e novos usuários no cadastro |
 | E3.1 | `lock` de `CarteiraSimulada` não protege concorrência entre requisições | Concorrência é do `DbContext` + transação (`arch.md` §9, item 3); não confiar no `lock` |
 | E4.2 | Arredondamento do resíduo divergir entre execuções | Ordenação determinística por percentual decrescente (`arch.md` §11, item 4) |
 | E5.5 | Gráfico virar fonte de cálculo financeiro | Componente só desenha o DTO; cálculo é do servidor (`arch.md` §11, item 2) |

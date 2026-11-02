@@ -115,53 +115,51 @@ Tela: `Dashboard.tsx`, modo "Editar Perfil" (nome + salário). Se o nome for inv
 
 ## 4. Carteira simulada (`CarteiraSimulada`, `Posicao`)
 
-Representa uma carteira única de investimentos com saldo em dinheiro e posições. A classe usa um `lock` interno (`_lock`) para serializar as próprias mutações e expõe as coleções como `IReadOnlyCollection`. Esse `lock` **não** é o mecanismo de concorrência entre requisições: quem serializa escrita no banco é `DbContext` `Scoped` + transação (`docs/arch.md` §9, item 3).
+Representa a carteira de investimentos de um usuário (arch §9.1), com saldo em dinheiro e posições. A classe usa um `lock` interno (`_lock`) para serializar as próprias mutações e expõe as coleções como `IReadOnlyCollection`. Esse `lock` **não** é o mecanismo de concorrência entre requisições: quem serializa escrita no banco é `DbContext` `Scoped` + transação (`docs/arch.md` §9, item 3).
 
-### 4.1 Saldo e patrimônio — **Exposta na API, sem tela**
+### 4.1 Saldo e patrimônio — **Exposto na API, ainda sem tela**
 
-- `CarteiraSimulada(saldoInicial)` recusa saldo negativo. A carteira padrão vem do seed da migration (`SeedInicial.CarteiraPadraoId`, `SaldoInicialCarteira = 10000m`); `CarteiraService.ObterCarteira` lê do banco e falha explicitamente se ela não existir.
+- `CarteiraSimulada(usuarioId, nome, saldoInicial)` recusa usuário/nome inválidos e saldo negativo. O cadastro cria a carteira `Principal` com `SeedInicial.SaldoInicialCarteira = 10000m`; `CarteiraService.ObterCarteira(usuarioId)` lê do banco e cria a padrão para usuários antigos.
 - `CalcularPatrimonioTotal()` = `SaldoDisponivel + Σ (quantidade × preço atual do ativo)`.
-- `GET /api/carteira` devolve `patrimonioTotal`, `saldoDisponivel`, `posicoes` e `aportes`.
-- Nenhuma tela consome esse endpoint: os cards "Saldo Disponível" e "Patrimônio Total" do `Dashboard.tsx` exibem **"R$ 0,00" fixo**.
+- `GET /api/carteira` devolve `id`, `nome`, `patrimonioTotal`, `saldoDisponivel`, `posicoes` e `aportes` **do usuário do token**; sem token → `401`.
+- O SPA ainda não consome esse endpoint (os cards "Saldo Disponível" e "Patrimônio Total" do `Dashboard.tsx` seguem em `R$ 0,00`), mas `frontend/src/services/CarteiraService.ts` e `AporteService.ts` já espelham o contrato.
 
-### 4.2 Aporte na carteira — **Só no domínio**
+### 4.2 Aporte na carteira — **Exposto na API**
 
-`CarteiraSimulada.AdicionarAporte(AporteSimulado)` recusa aporte nulo, registra o aporte na lista e **soma o valor ao saldo disponível**. Nenhum controller chama este método (ver §5.1).
+`CarteiraSimulada.AdicionarAporte(AporteSimulado)` recusa aporte nulo e aporte de outra carteira; registra o aporte na lista e **soma o valor ao saldo disponível**. `AporteService.Criar` chama esse método e grava aporte + saldo na mesma transação (`POST /api/aporte`).
 
-### 4.3 Compra de ativo — **Só no domínio**
+### 4.3 Compra de ativo — **Exposta na API**
 
 `ComprarAtivo(ativo, quantidade)`:
 
 - recusa ativo nulo e quantidade `<= 0`;
-- recusa compra cujo custo total exceda o saldo (`InvalidOperationException`);
+- recusa compra cujo custo total exceda o saldo (`InvalidOperationException` → `422`);
 - se não existe posição para o ativo, cria uma com o preço atual; se existe, recalcula o **preço médio ponderado** (`(custo atual + custo novo) / quantidade total`);
 - debita `preço × quantidade` do saldo.
 
-Comportamento observado a preservar: a posição é localizada por **identidade de referência** (`p.Ativo == ativo`), não por `Ticker`. Duas instâncias distintas do mesmo ticker geram duas posições.
+`POST /api/carteira/compras` recebe `{ ticker, quantidade }`, carrega o ativo do SQLite e grava a posição e o saldo. Ticker inexistente → `404`.
 
-Não existe endpoint de compra: é a funcionalidade de investimento mais central do produto e hoje só é alcançável por código/teste.
+### 4.4 Venda de ativo — **Exposta na API**
 
-### 4.4 Venda de ativo — **Só no domínio**
+`VenderAtivo(ativo, quantidade)`: recusa ativo nulo, quantidade `<= 0`, ausência de posição e venda maior que a quantidade detida; credita `preço × quantidade` no saldo e **remove a posição quando ela chega a zero**. `POST /api/carteira/vendas` é simétrico à compra.
 
-`VenderAtivo(ativo, quantidade)`: recusa ativo nulo, quantidade `<= 0`, ausência de posição e venda maior que a quantidade detida; credita `preço × quantidade` no saldo e **remove a posição quando ela chega a zero**.
+### 4.5 Posição (`Posicao`) — **Persistida por carteira**
 
-### 4.5 Posição (`Posicao`) — **Só no domínio**
-
-`quantidade` e `preçoMedio` positivos; `AtualizarPrecoMedioEQuantidade` pondera o preço médio; `ReduzirQuantidade` recusa reduzir mais do que existe. Não há campo de data, custo total nem resultado (lucro/prejuízo) realizado.
+`quantidade` e `preçoMedio` positivos; `AtualizarPrecoMedioEQuantidade` pondera o preço médio; `ReduzirQuantidade` recusa reduzir mais do que existe. As FKs `CarteiraId` e `AtivoId` são explícitas; o índice único `(CarteiraId, AtivoId)` impede posição duplicada. Não há campo de data, custo total nem resultado (lucro/prejuízo) realizado.
 
 ## 5. Aportes (`AporteSimulado`)
 
-### 5.1 Criação — **Exposta na API, sem tela, e sem efeito na carteira**
+### 5.1 Criação — **Exposta na API, ainda sem tela**
 
-`POST /api/aporte` → `AporteController.AdicionarAporte` → `AporteService.Criar`.
+`POST /api/aporte` → `AporteController.AdicionarAporte` → `AporteService.Criar(usuarioId, valor, carteiraId?)`.
 
-Regras: `valor > 0`, `origemSalarioId > 0` e origem precisa existir em `Usuarios` (verificado pelo serviço antes da escrita; ausente → `400`); sucesso devolve `200` com o aporte criado; `Id` é gerado pelo banco; data = `DateTime.Now` quando não informada (dívida P2-d).
+Regras: `valor > 0`, usuário do token existe e a carteira pertence a ele; `carteiraId` omitido usa a carteira `Principal` do usuário; id de outra carteira → `404`; sucesso devolve `200` com o aporte, o `saldoDisponivel` e o `patrimonioTotal` já atualizados; `Id` é gerado pelo banco; data = `DateTime.Now` quando não informada (dívida P2-d).
 
-**Limite funcional atual:** o serviço grava o aporte em `Aportes`, mas não o entrega a `CarteiraSimulada.AdicionarAporte`. Portanto, um aporte feito pela API **não altera saldo nem patrimônio** — o efeito só existe quando o aporte é adicionado diretamente à carteira (§4.2). Alêm disso, o aporte nasce sem vínculo com carteira: `AporteSimulado` não tem `CarteiraId` no domínio, e a FK `CarteiraSimuladaId` existe apenas como *shadow property* anulável (`Data/Configurations/AporteSimuladoConfiguration.cs`).
+O aporte nasce com `CarteiraId` explícito e `OrigemSalarioId` = usuário autenticado. `CarteiraSimulada.AdicionarAporte` soma o valor ao saldo e o `SaveChanges` grava os dois na mesma transação.
 
-### 5.2 Histórico — **Exposta na API, sem tela**
+### 5.2 Histórico — **Exposto na API, ainda sem tela**
 
-`GET /api/carteira` devolve `aportes`. No fluxo HTTP a lista vem vazia porque o aporte é gravado sem vínculo com a carteira (FK anulável, §5.1) e a navegação só carrega aportes com `CarteiraSimuladaId` preenchido. Nenhuma tela exibe histórico: o painel "Últimos Aportes" do `Dashboard.tsx` é um estado vazio fixo.
+`GET /api/carteira` devolve os `aportes` da carteira do usuário autenticado. O painel "Últimos Aportes" do `Dashboard.tsx` ainda é um estado vazio fixo; `frontend/src/services/AporteService.ts` já existe para a tela futura.
 
 ## 6. Catálogo de ativos e rendimento (`Ativo` e subclasses)
 
@@ -204,20 +202,20 @@ A variação é **mutação persistida do catálogo**: `IAtivoService` é `Scope
 
 ## 7. Orçamento por categoria (`Orcamento`)
 
-### 7.1 Leitura e gasto — **Exposta na API, sem tela**
+### 7.1 Leitura e gasto — **Exposto na API, ainda sem tela**
 
-- `Orcamento(nomeCategoria, limiteDefinido, percentualDoSalario)`: nome não vazio, limite `>= 0`, percentual `>= 0`; gasto inicia em 0.
+- `Orcamento(usuarioId, nomeCategoria, limiteDefinido, percentualDoSalario, ehFixo = false)`: usuário/nome válidos, limite `>= 0`, percentual `>= 0`; gasto inicia em 0.
 - `AdicionarDespesa(valor)` exige `valor > 0` e acumula em `ValorGastoAtual`.
 - `ValidarEstouroOrcamento()` = `gasto > limite`; `ObterSaldoRestante()` = `limite − gasto` (pode ser negativo).
-- `GET /api/orcamento` devolve categoria, limite, gasto, percentual, saldo restante e indicador de estouro.
-- `POST /api/orcamento/despesa` exige `valor > 0` e devolve o estado atualizado.
+- `GET /api/orcamento` devolve a categoria padrão **do usuário do token**: categoria, limite, gasto, percentual, saldo restante, estouro e `ehFixo`.
+- `POST /api/orcamento/despesa` exige `valor > 0` e devolve o estado atualizado do mesmo usuário.
 
 ### 7.2 Limites funcionais atuais
 
-- Existe **um único orçamento**, criado pelo seed (`SeedInicial.OrcamentoPadraoId`): `"Alimentação"`, limite R$ 1.200,00, 24% do salário. Não há endpoint para criar, listar ou remover categorias.
-- `PercentualDoSalario` é armazenado e devolvido, mas **não participa de nenhum cálculo** (nem deriva o limite a partir do salário do usuário).
-- O orçamento não é vinculado a um usuário: todos os usuários leem e alteram o mesmo gasto.
-- `Dashboard.tsx` exibe o painel "Orçamentos" como estado vazio fixo; nenhum cliente HTTP de orçamento existe no SPA.
+- O cadastro cria **um orçamento por usuário**, `"Alimentação"`, limite R$ 1.200,00, 24% do salário (`SeedInicial`). Usuários antigos recebem um na primeira leitura.
+- Não há endpoint para criar, listar ou remover categorias; o índice único `(UsuarioId, NomeCategoria)` já protege a futura API.
+- `PercentualDoSalario` e `EhFixo` são armazenados e devolvidos, mas **não participam de nenhum cálculo** hoje.
+- `Dashboard.tsx` exibe o painel "Orçamentos" como estado vazio fixo; `frontend/src/services/OrcamentoService.ts` já espelha o contrato.
 
 ## 8. Relatório financeiro consolidado (`RelatorioFinanceiro`)
 
@@ -232,12 +230,12 @@ Nenhum arquivo instancia a classe (`grep RelatorioFinanceiro` só encontra a pr�
 Estado: **Completa** — é a autoridade única de estado (`docs/arch.md` §9).
 
 - `Data/AppDbContext.cs` declara 5 `DbSet` (`Usuarios`, `Ativos`, `CarteirasSimuladas`, `AportesSimulados`, `Orcamentos`); `OnModelCreating` aplica `ApplyConfigurationsFromAssembly` + `SeedInicial.Aplicar`.
-- `Data/Configurations/` tem 7 arquivos: chave primária, FKs, `HasPrecision(18,2)`, índice único de `Ticker` com colação `NOCASE` e a hierarquia de `Ativo` em TPH com discriminador string na coluna `Tipo`.
+- `Data/Configurations/` tem 7 arquivos: chave primária, FKs, `HasPrecision(18,2)`, índice único de `Ticker` com colação `NOCASE`, hierarquia de `Ativo` em TPH com discriminador string na coluna `Tipo` e os índices de posse (`UsuarioId`+`Nome` da carteira, `UsuarioId`+`NomeCategoria` do orçamento, `CarteiraId`+`AtivoId` da posição).
 - `Program.cs` lê `ConnectionStrings:DefaultConnection` (ausência derruba o startup), registra `AppDbContext` como `Scoped` com `UseSqlite` + `SqlitePragmaInterceptor` (`foreign_keys`, WAL, `busy_timeout`) e aplica `Database.Migrate()` na inicialização.
-- `Data/Migrations/20261101003441_InitialCreate` cria o schema; o seed é idempotente (ADR-016). `portfy.db` fica fora do git (`.gitignore`, linhas 12-14).
+- `Data/Migrations/20261101003441_InitialCreate` cria o schema e `20261102210612_PosseDaCarteira` adiciona a posse por usuário (ADR-021). O seed da migration contém apenas os 4 ativos (ADR-016); carteira `Principal` e orçamento `Alimentação` nascem no cadastro do usuário. `portfy.db` fica fora do git (`.gitignore`, linhas 12-14).
 - `Data/AppDbContextEmMemoria.cs` é o seam da suíte de testes: SQLite in-memory pelo mesmo caminho de persistência.
 
-Consequência funcional: o estado de §3–§7 **sobrevive ao reinício da API**, coberto por `tests/Portfy.Tests/Data/PersistenciaTests.cs`. O que ainda não existe: histórico/auditoria de alterações, paginação de listagens e backup.
+Consequência funcional: o estado de §3–§7 **sobrevive ao reinício da API** e é isolado por usuário, coberto por `tests/Portfy.Tests/Data/PersistenciaTests.cs` e `tests/Portfy.Tests/Api/CarteiraApiTests.cs`. O que ainda não existe: histórico/auditoria de alterações, paginação de listagens e backup.
 
 ## 10. Interface web (SPA React)
 
@@ -247,15 +245,18 @@ Consequência funcional: o estado de §3–§7 **sobrevive ao reinício da API**
 | `Login.tsx` | Autenticação, mensagem de sucesso herdada do cadastro, bloqueio do botão durante a requisição | Completa |
 | `Cadastro.tsx` | Cadastro + verificação automática da conta + retorno ao login com aviso | Completa |
 | `Dashboard.tsx` | Carrega o usuário por id, edita nome/salário, exclui a conta, saúda o usuário | Completa |
-| `Dashboard.tsx` (cards) | "Salário Mensal" real; "Saldo Disponível", "Patrimônio Total" e "Total Investido" fixos em `R$ 0,00` | Parcial |
+| `Dashboard.tsx` (cards) | "Salário Mensal" real; "Saldo Disponível", "Patrimônio Total" e "Total Investido" ainda fixos em `R$ 0,00` (o SQLite já expõe a carteira) | Parcial |
 | `Dashboard.tsx` (painéis) | Orçamentos, Investimentos, Aportes — todos em estado vazio fixo | Ausente |
 | `Dashboard.tsx` (menu) | Itens Dashboard/Salário/Investimentos/Aportes/Relatórios com `href="#"` | Ausente |
 | `components/Ativos.tsx` | Lista o catálogo de ativos | Órfã (não importado) |
 | `services/api.ts` | Instância axios (`http://localhost:5000/api`), interceptor que traduz `ProblemDetails`/envelope `Mensagem` para `ErroRequisicao`, mensagem padrão e mensagem de "API fora do ar" | Completa |
 | `services/UsuarioService.ts` | Clientes: cadastrar, verificarConta, obterPorId, obterTodos, atualizar, excluir, login | Completa |
 | `services/AtivoService.ts` | Cliente: `obterTodos` do catálogo | Órfão (só usado por `Ativos.tsx`) |
+| `services/CarteiraService.ts` | Cliente de `GET /api/carteira`, compra e venda | Completa (sem tela) |
+| `services/AporteService.ts` | Cliente de `POST /api/aporte` | Completa (sem tela) |
+| `services/OrcamentoService.ts` | Cliente de `GET /api/orcamento` e `POST /api/orcamento/despesa` | Completa (sem tela) |
 
-Funil de integração: **16 endpoints** existem na API (`/api/usuario` 9, `/api/ativo` 3, `/api/carteira` 1, `/api/aporte` 1, `/api/orcamento` 2). As **telas** consomem **6** (cadastro, verificar conta, obter por id, atualizar, excluir, login). `usuarioService.obterTodos` existe no cliente e nenhuma tela o chama; `ativoService.obterTodos` só é usado pelo componente órfão `Ativos.tsx`.
+Funil de integração: **18 endpoints** existem na API (`/api/usuario` 9, `/api/ativo` 3, `/api/carteira` 3 — leitura, compra e venda —, `/api/aporte` 1, `/api/orcamento` 2). As **telas** consomem **6** (cadastro, verificar conta, obter por id, atualizar, excluir, login). `usuarioService.obterTodos` existe no cliente e nenhuma tela o chama; `ativoService.obterTodos` só é usado pelo componente órfão `Ativos.tsx`. Os clientes de carteira, aporte e orçamento existem, mas ainda não há tela consumindo.
 
 ## 11. Regras transversais do sistema
 
@@ -264,46 +265,33 @@ Funil de integração: **16 endpoints** existem na API (`/api/usuario` 9, `/api/
 3. **Erros de domínio → HTTP** pelo `ExceptionHandlingMiddleware` (único ponto): `ArgumentException`/`ArgumentOutOfRangeException` → `400`; recurso inexistente → `404`; `InvalidOperationException` → `422`; conflito de unicidade de login → `409`; falha de autenticação → `401`. Respostas de erro são `ProblemDetails` (RFC 7807) com `detail`; a validação de forma do cadastro responde `ValidationProblemDetails` com `errors` por campo.
 4. **Estado persistido com concorrência controlada**: os serviços são `Scoped` e recebem `AppDbContext`; concorrência é `DbContext` por requisição + transação. O `lock` de `CarteiraSimulada` serializa as mutações internas do objeto, não requisições concorrentes (`docs/arch.md` §9, item 3).
 5. **CORS restrito** a `http://localhost:5173` e `http://localhost:3000`; Swagger UI só em `Development`.
-6. **Sem autenticação/autorização de transporte**: não há `AddAuthentication`, não há `[Authorize]` em nenhum controller, e `app.UseAuthorization()` opera sem esquema configurado. Qualquer cliente alcança qualquer `id`.
+6. **Autenticação JWT**: `POST /api/usuario/login` emite o token; `[Authorize]` protege os endpoints de usuário (exceto cadastro, login e verificação), carteira, aporte e orçamento. A identidade vem da claim `sub`, nunca da URL ou do corpo. A chave de assinatura vive só em configuração/ambiente (`Auth__Jwt__Chave`).
 
-## 12. Cobertura de testes (89 casos, 83 métodos)
+## 12. Cobertura de testes (170 casos)
 
-Números medidos com `dotnet test tests/Portfy.Tests` na árvore atual (2026-11-01). A coluna **Métodos** conta `[Fact]` + `[Theory]`; **Casos** conta cada `[InlineData]` como caso próprio, e é esse total que o `dotnet test` reporta.
+Números medidos com `dotnet test tests/Portfy.Tests` em 2026-11-02, depois da migration de posse por usuário. A coluna **Casos** é o que o `dotnet test` reporta (cada `[InlineData]` conta como caso próprio).
 
-| Área | Métodos | Casos | O que garantem |
-|---|---|---|---|
-| `CarteiraSimulada` | 11 | 12 | saldo inicial, compra sem saldo, preço médio ponderado, venda sem posição, remoção ao zerar, aporte somando ao saldo, patrimônio |
-| `Posicao` | 5 | 7 | construtor, redução acima do disponível |
-| `Usuario` | 9 | 9 | hash armazenado sem senha em texto puro, conta nasce não verificada, troca de hash, salário |
-| `Orcamento` | 6 | 7 | limite, percentual, acúmulo de gasto, estouro, saldo negativo |
-| `Ativo` | 7 | 9 | ticker/preço válidos, normalização de ticker, rentabilidade, polimorfismo de `Acao`/`FII`/`Cripto` |
-| `AtivoService` | 5 | 5 | variação pelo percentual sorteado, percentual customizado, ticker inexistente, catálogo |
-| `UsuarioService` | 10 | 10 | login duplicado sem caixa, autenticação, hash BCrypt no cadastro, troca de senha com senha atual, exclusão, atualização |
-| `CarteiraController` | 3 | 3 | resposta montada a partir do serviço injetado, serviço nulo, saldo padrão |
-| `Persistencia` (`Data/`) | 6 | 6 | usuário sobrevive à troca de contexto, seed não duplica nem sobrescreve preço, precisão de `decimal` na ida e volta, posições recarregadas, aporte exige usuário existente e recebe `Id` do banco, hash legado migra para BCrypt |
-| `SenhaHasher` | 6 | 6 | BCrypt verificável, salt por hash, senha vazia recusada, hash legado PBKDF2 aceito, hash malformado recusado sem exceção, `PrecisaAtualizar` |
-| Validadores de DTO (`Dtos/`) | 11 | 11 | cadastro (nome/login/senha/salário) e alteração de senha (tamanho e senha diferente da atual) |
-| `ExceptionHandlingMiddleware` | 4 | 4 | `ArgumentException` → `400`, `InvalidOperationException` → `422`, `KeyNotFoundException` → `404`, desconhecida → `500` sem vazar detalhe |
+| Área (namespace) | Casos | O que garantem |
+|---|---|---|
+| `Models` | 47 | invariantes de carteira, posição, orçamento, usuário e ativo; carteira com dono obrigatório |
+| `Services` | 21 | catálogo/variação, autenticação, hash BCrypt, exclusão de conta |
+| `Data` | 10 | persistência real em SQLite, troca de contexto, precisão de `decimal`, isolamento de carteira/orçamento por usuário, compra/venda/aporte |
+| `Dtos` | 20 | validadores de cadastro, senha, aporte (carteira opcional), despesa e simulação |
+| `Controllers` | 6 | resposta da carteira montada a partir do serviço injetado, 403 sem identidade, 404 de ticker, compra mapeada |
+| `Api` | 13 | autenticação/JWT/rate limit e fluxo HTTP completo de carteira, compra, venda, aporte e orçamento por usuário |
+| `Integracoes` | 48 | provedores de mercado, cache, disjuntor, fallback e endpoints de mercado |
+| `Middleware` | 5 | mapa de exceções para `ProblemDetails` |
 
-Sem teste hoje: `Etf` e `RendaFixa` (rendimento), o domínio `AporteSimulado`, `AporteController`, `OrcamentoController`, `UsuarioController` (validado por smoke HTTP), `GeradorDeVariacaoAleatoria`, `RelatorioFinanceiro` e todo o SPA. `AporteService` tem cobertura indireta em `PersistenciaTests`.
+Total: **170 casos, 0 falhas**. Sem teste automatizado hoje: `Etf` e `RendaFixa` (rendimento), `GeradorDeVariacaoAleatoria`, `RelatorioFinanceiro` e as telas do SPA. O fluxo HTTP de usuário/carteira/orçamento tem cobertura de ponta a ponta em `Api`.
 
 ## 13. Funcionalidades ausentes (não existem no código)
 
 Listadas para impedir que sejam tratadas como existentes:
 
-- Compra e venda de ativos por HTTP; aporte afetando a carteira por HTTP.
-- Vínculo entre usuário e carteira/orçamento/aportes: todos compartilham o mesmo estado global (uma carteira e um orçamento no seed).
-- Múltiplas carteiras ou múltiplas simulações por usuário; clonagem de simulação.
-- Rebalanceamento de aportes, conversão de moedas, alocação-meta por ativo.
-- Busca de ativos por nome/ticker; cadastro de novos ativos por API.
-- `Despesa` datada e categorias de orçamento configuráveis; classificação fixo/variável; contas recorrentes.
-- Indicador de taxa de poupança.
-- Relatório consolidado exposto por API ou tela.
-- Autenticação por token/sessão, autorização por usuário, recuperação de senha, 2FA.
-- Histórico/auditoria de alterações e backup do banco.
-- Histórico de preços, cotação por fonte externa, câmbio automático.
-- Paginação, filtros, ordenação em qualquer listagem.
-- Rotas no SPA (deep link), navegação pelo menu lateral, gráficos.
+- CRUD de múltiplas carteiras (criar, renomear, excluir) e clonagem de simulação (E2.2/E2.3 do roadmap). O modelo já tem `UsuarioId`/`Nome` e a carteira `Principal`, mas a API só expõe a leitura.
+- Alocação-meta, rebalanceamento, simulador "e se?" e câmbio (F4).
+- Relatório financeiro por API e telas que consumam carteira, aporte ou orçamento (F5).
+- Rate limit específico para compra/venda/aporte; hoje as políticas por IP cobrem login (10/min) e mercado (60/min).
 
 ## 14. Manutenção deste documento
 

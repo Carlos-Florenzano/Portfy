@@ -23,8 +23,9 @@ namespace Portfy.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("CarteiraSimuladaId")
-                        .HasColumnType("INTEGER");
+                    b.Property<int>("CarteiraId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("CarteiraSimuladaId");
 
                     b.Property<DateTime>("DataAporte")
                         .HasColumnType("TEXT");
@@ -38,7 +39,7 @@ namespace Portfy.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CarteiraSimuladaId");
+                    b.HasIndex("CarteiraId");
 
                     b.HasIndex("OrigemSalarioId");
 
@@ -94,26 +95,33 @@ namespace Portfy.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
                     b.Property<decimal>("SaldoDisponivel")
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
 
-                    b.ToTable("Carteiras", (string)null);
+                    b.HasIndex("UsuarioId", "Nome")
+                        .IsUnique();
 
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            SaldoDisponivel = 10000m
-                        });
+                    b.ToTable("Carteiras", (string)null);
                 });
 
             modelBuilder.Entity("Portfy.Models.Orcamento", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("EhFixo")
                         .HasColumnType("INTEGER");
 
                     b.Property<decimal>("LimiteDefinido")
@@ -129,23 +137,19 @@ namespace Portfy.Data.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<decimal>("ValorGastoAtual")
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Orcamentos", (string)null);
+                    b.HasIndex("UsuarioId", "NomeCategoria")
+                        .IsUnique();
 
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            LimiteDefinido = 1200m,
-                            NomeCategoria = "Alimentação",
-                            PercentualDoSalario = 24m,
-                            ValorGastoAtual = 0m
-                        });
+                    b.ToTable("Orcamentos", (string)null);
                 });
 
             modelBuilder.Entity("Portfy.Models.Posicao", b =>
@@ -157,8 +161,9 @@ namespace Portfy.Data.Migrations
                     b.Property<int>("AtivoId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("CarteiraSimuladaId")
-                        .HasColumnType("INTEGER");
+                    b.Property<int>("CarteiraId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("CarteiraSimuladaId");
 
                     b.Property<decimal>("PrecoMedio")
                         .HasPrecision(18, 2)
@@ -171,7 +176,8 @@ namespace Portfy.Data.Migrations
 
                     b.HasIndex("AtivoId");
 
-                    b.HasIndex("CarteiraSimuladaId");
+                    b.HasIndex("CarteiraId", "AtivoId")
+                        .IsUnique();
 
                     b.ToTable("Posicoes", (string)null);
                 });
@@ -322,13 +328,32 @@ namespace Portfy.Data.Migrations
                 {
                     b.HasOne("Portfy.Models.CarteiraSimulada", null)
                         .WithMany("Aportes")
-                        .HasForeignKey("CarteiraSimuladaId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .HasForeignKey("CarteiraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("Portfy.Models.Usuario", null)
                         .WithMany()
                         .HasForeignKey("OrigemSalarioId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Portfy.Models.CarteiraSimulada", b =>
+                {
+                    b.HasOne("Portfy.Models.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Portfy.Models.Orcamento", b =>
+                {
+                    b.HasOne("Portfy.Models.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
@@ -342,8 +367,9 @@ namespace Portfy.Data.Migrations
 
                     b.HasOne("Portfy.Models.CarteiraSimulada", null)
                         .WithMany("Posicoes")
-                        .HasForeignKey("CarteiraSimuladaId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .HasForeignKey("CarteiraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Ativo");
                 });

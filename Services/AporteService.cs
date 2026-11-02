@@ -4,33 +4,43 @@ using Portfy.Services.Contracts;
 
 namespace Portfy.Services;
 
-/// Cria aportes simulados persistidos no SQLite. O Id passou a ser gerado pelo banco
-/// (arch §9.4) e o aporte mantém integridade referencial com o usuário dono do
-/// salário de origem. Registrado como Scoped porque depende do AppDbContext.
+/// Cria aportes simulados persistidos no SQLite. O aporte pertence à carteira do
+/// usuário autenticado: o saldo e o histórico mudam na mesma transação, então o
+/// frontend nunca vê um aporte gravado sem o saldo correspondente (arch §9.1).
+/// Registrado como Scoped porque depende do AppDbContext.
 public sealed class AporteService : IAporteService
 {
     private readonly AppDbContext _db;
+    private readonly ICarteiraService _carteiraService;
 
-    public AporteService(AppDbContext db)
+    public AporteService(AppDbContext db, ICarteiraService carteiraService)
     {
         _db = db ?? throw new ArgumentNullException(nameof(db));
+        _carteiraService = carteiraService ?? throw new ArgumentNullException(nameof(carteiraService));
     }
 
-    public AporteSimulado Criar(decimal valorAportado, int origemSalarioId)
+    public AporteRealizado Criar(int usuarioId, decimal valorAportado, int? carteiraId = null)
     {
-        // Integridade referencial verificada antes da escrita, com mensagem de domínio
-        // em vez de uma falha de chave estrangeira no banco.
-        if (!_db.Usuarios.Any(u => u.Id == origemSalarioId))
-            throw new ArgumentException(
-                "O usuário de origem do salário não existe.",
-                nameof(origemSalarioId));
+        CarteiraSimulada carteira = _carteiraService.ObterCarteira(usuarioId);
+
+        // A carteira é sempre a do usuário do token. Um id explícito só é aceito
+        // quando coincide com ela; qualquer outro id é 404, nunca acesso cruzado.
+        if (carteiraId is > 0 && carteira.Id != carteiraId)
+            throw new KeyNotFoundException("Carteira não encontrada para o usuário autenticado.");
 
         // Id 0 = sem identidade: a chave é gerada pelo banco (arch §9.4).
-        var aporte = new AporteSimulado(0, valorAportado, origemSalarioId);
+        var aporte = new AporteSimulado(0, valorAportado, usuarioId, carteira.Id);
 
+        // AdicionarAporte soma ao saldo e adiciona à coleção da carteira; o Add
+        // explícito garante que o EF grave a linha mesmo sem DetectChanges.
+        carteira.AdicionarAporte(aporte);
         _db.AportesSimulados.Add(aporte);
+
         _db.SaveChanges();
 
-        return aporte;
+        return new AporteRealizado(
+            aporte,
+            carteira.SaldoDisponivel,
+            carteira.CalcularPatrimonioTotal());
     }
 }

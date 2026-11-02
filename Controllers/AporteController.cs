@@ -6,8 +6,8 @@ using Portfy.Services.Contracts;
 
 namespace Portfy.Controllers;
 
-// A criação do aporte (com a geração do Id) é do IAporteService, injetado.
-// Aporte é dado financeiro do usuário autenticado: exige token (ADR-010).
+// A criação do aporte (com a geração do Id e a soma ao saldo) é do IAporteService,
+// injetado. O dono da carteira é o usuário do token, nunca o id do corpo.
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
@@ -24,9 +24,17 @@ public class AporteController : ControllerBase
     [HttpPost]
     public IActionResult AdicionarAporte([FromBody] AporteRequest request)
     {
-        // Origem do salário inexistente: o serviço valida a integridade referencial
-        // e lança ArgumentException, traduzida em 400 pelo ExceptionHandlingMiddleware.
-        AporteSimulado novoAporte = _aporteService.Criar(request.Valor, request.OrigemSalarioId);
+        int? usuarioId = User.ObterUsuarioId();
+
+        if (usuarioId is null)
+            return Forbid();
+
+        AporteRealizado realizado = _aporteService.Criar(
+            usuarioId.Value,
+            request.Valor,
+            request.CarteiraId);
+
+        AporteSimulado novoAporte = realizado.Aporte;
 
         return Ok(new CriarAporteResponse
         {
@@ -37,7 +45,10 @@ public class AporteController : ControllerBase
                 DataAporte = novoAporte.DataAporte,
                 ValorAportado = novoAporte.ValorAportado,
                 OrigemSalarioId = novoAporte.OrigemSalarioId,
+                CarteiraId = novoAporte.CarteiraId,
             },
+            SaldoDisponivel = realizado.SaldoDisponivel,
+            PatrimonioTotal = realizado.PatrimonioTotal,
         });
     }
 }

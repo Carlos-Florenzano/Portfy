@@ -1,6 +1,6 @@
 # ARCH — Princípios de Construção de Software do Portfy
 
-**Versão:** 1.1
+**Versão:** 1.2
 **Escopo de autoridade:** este documento é a fonte de verdade para **como** o Portfy é construído (escopo de MVP, camadas, estrutura de pastas, regras de dependência, convenções, gates). Ele consome — e não substitui — as fontes listadas em §2.
 **Aplicação:** obrigatório para qualquer alteração de código, estrutura ou dependência. Toda exceção exige uma entrada em [ADR](#19-decisões-vinculantes).
 **Público-alvo primário:** agentes de IA e desenvolvedores que alteram o repositório sem contexto prévio.
@@ -50,7 +50,7 @@ Regra: se uma alteração contraria `notas/importante/sugestoes_mvp_portfy_temp_
 | Simulador "e se?" (§3.3) | endpoint de *preview* que não persiste | **inexistente** | `POST api/carteiras/{id}/simular` sem escrita (ADR-017) |
 | Orçamentos fixos vs. variáveis, contas recorrentes (§3.4) | `Models/Orcamento.cs` (existe) | **parcial** | falta classificar fixo/variável e vincular a usuário |
 | Indicador de taxa de poupança (§3.4) | `Services/IndicadorService.cs` | **inexistente** | fórmula única, determinística, testada |
-| Múltiplas simulações + seletor de perfil (§3.5) | `CarteiraSimulada` com `Id`, `UsuarioId`, `Nome` | **não existe** (hoje 1 carteira fixa no seed, `SeedInicial.CarteiraPadraoId`) | modelagem por usuário (§9.1) |
+| Múltiplas simulações + seletor de perfil (§3.5) | `CarteiraSimulada` com `Id`, `UsuarioId`, `Nome` | **base implementada em 2026-11-02** — cada usuário tem a sua carteira; o CRUD de múltiplas simulações e o seletor de perfil ainda não existem | modelagem por usuário (§9.1) |
 | Clonagem de simulação (§3.5) | `Services/CarteiraService.ClonarAsync` | **inexistente** | cópia sem IDs, em transação única |
 
 ### 2.3 Schema proposto em `notas/importante/sugestoes_mvp_portfy_temp_outubro_2026.md` §2 → modelo canônico
@@ -109,7 +109,7 @@ A AV1 sugere "uma interface para a carteira". A decisão deste documento (ADR-01
 | Remover `UI/Dashboard.cs` e a pasta `UI/` | ✅ **resolvido** (commit `cbe4c05`) |
 | Introduzir herança/polimorfismo em `Ativo` | ✅ **resolvido** (commit `4a8be0a`) |
 | Introduzir DI + interface | ✅ **resolvido** (R6: 6 contratos em `Services/Contracts/`, registrados em `Program.cs`) |
-| Escrever testes das invariantes | ✅ **resolvido** (`tests/Portfy.Tests`, 89 testes em 2026-11-01) |
+| Escrever testes das invariantes | ✅ **resolvido** (`tests/Portfy.Tests`, 170 testes em 2026-11-02) |
 | Trocar `alert`/`console.error` por erro em tela + interceptor | ✅ **resolvido** (interceptor em `services/api.ts`) |
 | Resíduo de console no backend | ⚠️ `Services/RelatorioFinanceiro.cs` ainda imprime (`Console.Clear`/`WriteLine`) |
 
@@ -124,13 +124,13 @@ Medido em **2026-10-30** (fechamento da AV1) e **remedido em 2026-11-01**, após
 | Build do backend | `dotnet build Portfy.csproj` | **PASSA** — 0 erros, 0 warnings |
 | Build do frontend | `cd frontend && npm run build` | **PASSA** (79 módulos, ~250 ms) |
 | Lint do frontend | `cd frontend && npm run lint` | **PASSA** — 0 erros |
-| Migrations EF | `ls Data/Migrations` | **PASSA** — `20261101003441_InitialCreate` + `AppDbContextModelSnapshot` (2026-11-01) |
+| Migrations EF | `ls Data/Migrations` | **PASSA** — `20261101003441_InitialCreate` + `20261102210612_PosseDaCarteira` + `AppDbContextModelSnapshot` (2026-11-02) |
 | Configuração EF por entidade | `ls Data/Configurations` | **PASSA** — 7 `IEntityTypeConfiguration` (2026-11-01) |
 | Seed de ativos | `ls Data/Seed` | **PASSA** — `SeedInicial.cs`, idempotente (2026-11-01) |
-| Projeto de testes | `dotnet test tests/Portfy.Tests` | **PASSA** — 150 testes, 0 falhas (2026-11-01, após a integração de mercado) |
+| Projeto de testes | `dotnet test tests/Portfy.Tests` | **PASSA** — 170 testes, 0 falhas (2026-11-02, após a posse por usuário) |
 | `AppDbContext` em uso | busca por `AppDbContext` em `*.cs` | **PASSA** — consumido pelos 5 serviços `Scoped`; nenhum controller o referencia (2026-11-01) |
 | `*.db` fora do git | `grep db .gitignore` | **PASSA** — `*.db`, `*.db-shm`, `*.db-wal` (linhas 12-14) |
-| Autenticação | busca por `AddAuthentication` / `[Authorize]` | **inexistente** |
+| Autenticação | busca por `AddAuthentication` / `[Authorize]` | **PASSA** — JWT emitido/validado e recursos protegidos por `[Authorize]` (2026-11-01) |
 | `get; set;` em `Models/` | `grep -rn "get; set;" Models` | **vazio** ✅ (conquista da AV1, preservar) |
 | `alert` no frontend | `grep -rn "alert(" frontend/src` | **vazio** ✅ |
 | Estado de domínio em controller/service | `grep -rn "private static" Controllers Services` | **vazio** ✅ |
@@ -418,6 +418,12 @@ CotacaoCambio(Id PK, MoedaOrigem, MoedaDestino, Fator, AtualizadoEm)  -- UNIQUE(
 
 Herança de `Ativo`: **TPH** com discriminador `Tipo` em string (ADR-009).
 
+**Atualização de 2026-11-02 (ADR-021):** a posse por usuário foi implementada pela
+migration `20261102210612_PosseDaCarteira`: `Carteiras` e `Orcamentos` têm `UsuarioId`,
+`Aportes` e `Posicoes` têm a carteira explícita, e o cadastro cria a carteira
+`Principal` (10.000) e o orçamento `Alimentação` (1.200) do usuário. `AlocacaoMeta` e
+`CotacaoCambio` continuam como itens futuros do roadmap (F4).
+
 ### 9.2 Colaboração entre objetos (preservar — AV1 dimensão E)
 
 Relações canônicas, já corretas no código e que **não** devem ser refeitas:
@@ -652,7 +658,7 @@ Todas devem retornar **vazio** (ou o valor indicado). São baratas e executávei
 | Sem **chamada** a `EnsureCreated` | `grep -rn "\.EnsureCreated(" --include="*.cs" .` | vazio | ✅ vazio (há 2 menções em comentário, em `Program.cs:70` e `AppDbContextEmMemoria.cs:15`) |
 | Sem `DateTime.Now` | `grep -rn "DateTime.Now" --include="*.cs" Models Services Controllers Data` | vazio | ❌ 3 ocorrências em `Models/` (P2-d) |
 | Build | `dotnet build Portfy.csproj` | 0 erros | ✅ 0 erros, 0 warnings |
-| Testes | `dotnet test tests/Portfy.Tests` | 0 falhas | ✅ 150/150 |
+| Testes | `dotnet test tests/Portfy.Tests` | 0 falhas | ✅ 170/170 (2026-11-02) |
 
 Comando com `--include=*.cs` **sem aspas** falha silenciosamente no zsh (o shell tenta expandir o padrão): o gate devolve saída vazia e parece passar. Sempre citar o padrão.
 
@@ -694,6 +700,7 @@ O esperado não muda quando o resultado está vermelho: gate que falha é dívid
 | ADR-018 | Hash de senha em BCrypt (fator 12) via `ISenhaHasher`, com ponte de verificação para hashes PBKDF2 existentes | substitui a exigência de PBKDF2 ≥ 210k (§15, item 3); usuários antigos não ficam bloqueados |
 | ADR-019 | Validação de forma em FluentValidation aplicada por um filtro global, não por `DataAnnotations` nem por `if` no controller | uma regra de payload por DTO, em um único ponto de execução |
 | ADR-020 | Dados de mercado vêm de três fontes complementares com contrato padronizado: **BRAPI** para B3/FII/cripto, **FMP** para ativos globais e fundamentos, **BCB/SGS** para macroeconomia. O consumidor usa `IMercadoService` e nunca conhece o provedor | ordem de preferência por tipo de ticker; fallback para a fonte secundária nas duas leituras — fundamentos declaram `cobertura: Completa` (FMP) ou `Parcial` (BRAPI), com `Parcial` como padrão do enum; cache em memória; disjuntor por fonte; `503` quando **nenhuma** fonte responde (falha não vira `404`); `429` acima de 60 consultas por minuto por IP; credenciais só por ambiente (`Integracoes__TokenBrapi`, `Integracoes__ChaveFmp`); sem pacote novo (HttpClient e MemoryCache do framework); operação documentada em `docs/integracoes-mercado.md` |
+| ADR-021 | Posse por usuário no SQLite: `CarteiraSimulada(UsuarioId, Nome)`, `Orcamento(UsuarioId, EhFixo)`, `AporteSimulado(CarteiraId)` e `Posicao(CarteiraId, AtivoId)` explícitos. Cadastro cria a carteira `Principal` (10.000) e o orçamento `Alimentação` (1.200) na mesma transação; compra, venda e aporte usam o usuário do token e alteram saldo/posição no mesmo `SaveChanges` | cada usuário só enxerga os próprios dados; a migration `PosseDaCarteira` associa os dados antigos ao primeiro usuário, cria carteira/orçamento para os demais e remove órfãos sem usuário; múltiplas simulações passam a ser possíveis pelo `Nome` (CRUD completo fica no roadmap) |
 
 ---
 
@@ -716,7 +723,7 @@ O esperado não muda quando o resultado está vermelho: gate que falha é dívid
 | # | Dívida | Critério de aceite |
 |---|---|---|
 | P1-a | Sem autenticação; login não emite credencial | JWT emitido/validado; carteira com `[Authorize]` |
-| P1-b | ✅ resolvido em 2026-10-30 — `tests/Portfy.Tests` com testes das invariantes de R6 (**66** em 2026-11-01) | `dotnet test` = 0 falhas |
+| P1-b | ✅ resolvido em 2026-10-30 — `tests/Portfy.Tests` com testes das invariantes de R6 (**170** em 2026-11-02) | `dotnet test` = 0 falhas |
 | P1-c | ✅ resolvido em 2026-11-01 para usuário — erros em `ProblemDetails` pelo middleware único, sem `try/catch` por action; os demais controllers seguem com o envelope legado | middleware único + ProblemDetails |
 | P1-d | ✅ resolvido em 2026-11-01 — hash de senha em BCrypt (fator 12) com ponte PBKDF2 (ADR-018) | ≥ 210k de custo efetivo, parametrizado |
 | P1-e | `AllowedHosts: "*"` e CORS hardcoded | allowlist por configuração |
