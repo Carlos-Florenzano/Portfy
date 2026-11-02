@@ -1,60 +1,41 @@
-using System.Security.Cryptography; // NOVO: necessário para proteger e verificar a senha
-// Pelo que eu vi a criptografia PBKDF2/SHA256 precisa passar para um serviço dedicado. Estando na pasta Services 
-// Focado estritamente na identidade e nas finanças do usuário para ter uma alta coesão.
 namespace Portfy.Models;
 
 // Responsabilidade da Classe:
-// Gestão da identidade do usuário, entrada de renda
-// e autenticação da conta.
+// Gestão da identidade do usuário, entrada de renda e autenticação da conta.
+// Hash de senha NÃO mora aqui (arch §13, item 5): o modelo recebe `SenhaHash`
+// pronto do UsuarioService, que delega ao ISenhaHasher.
 public class Usuario
 {
     // Id não muda após a criação. O setter privado existe apenas para que a
     // persistência grave a chave autoincrementada; o domínio não expõe escrita.
     public int Id { get; private set; }
 
-    // Propriedades com private set para integridade dos dados
     public string Nome { get; private set; }
     public decimal SalarioMensal { get; private set; }
     public DateTime DataRecebimento { get; private set; }
 
-    // NOVO: login utilizado para acessar o sistema
+    // Login utilizado para acessar o sistema.
     public string Login { get; private set; } = string.Empty;
-// NOVO: Login do usuário. Fica vazio nos usuários criados pelos construtores antigos.
 
-public string SenhaHash { get; private set; } = string.Empty;
-// NOVO: Senha armazenada como hash. Fica vazia nos usuários antigos.
+    // Senha já protegida. Fica vazia apenas nos usuários criados pelos
+    // construtores antigos, que não têm login.
+    public string SenhaHash { get; private set; } = string.Empty;
 
-public bool ContaVerificada { get; private set; }
-// NOVO: Indica se a conta já foi verificada.
+    public bool ContaVerificada { get; private set; }
 
-
-    // Construtor Simplificado
-    // Mantido para não quebrar as partes do projeto
+    // Construtor simplificado, mantido para não quebrar as partes do projeto
     // que já utilizam Usuario(nome, salario).
     public Usuario(string nome, decimal salarioMensal)
         : this(1, nome, salarioMensal, DateTime.Now)
     {
     }
 
-
-    // NOVO: construtor utilizado para cadastrar
-    // um usuário com login e senha.
+    // Construtor de cadastro: recebe a senha JÁ em hash.
     // Id = 0 significa "ainda sem identidade": a chave é atribuída pela persistência.
-    public Usuario(
-        string nome,
-        decimal salarioMensal,
-        string login,
-        string senha)
-        : this(
-            0,
-            nome,
-            salarioMensal,
-            DateTime.Now,
-            login,
-            senha)
+    public Usuario(string nome, decimal salarioMensal, string login, string senhaHash)
+        : this(0, nome, salarioMensal, DateTime.Now, login, senhaHash)
     {
     }
-
 
     // Construtor exigido pelo EF Core para materializar um usuário já persistido.
     private Usuario()
@@ -62,13 +43,8 @@ public bool ContaVerificada { get; private set; }
         Nome = string.Empty;
     }
 
-
-    // Construtor Completo ORIGINAL
-    public Usuario(
-        int id,
-        string nome,
-        decimal salarioMensal,
-        DateTime dataRecebimento)
+    // Construtor completo original (sem login).
+    public Usuario(int id, string nome, decimal salarioMensal, DateTime dataRecebimento)
     {
         if (id <= 0)
             throw new ArgumentException(
@@ -84,20 +60,18 @@ public bool ContaVerificada { get; private set; }
         Nome = nome;
         DataRecebimento = dataRecebimento;
 
-        // Reutiliza a validação do método no construtor
+        // Reutiliza a validação do método no construtor.
         AtualizarSalario(salarioMensal);
     }
 
-
-    // NOVO: construtor completo para cadastro
-    // com login e senha.
+    // Construtor completo para cadastro com login e senha já protegida.
     public Usuario(
         int id,
         string nome,
         decimal salarioMensal,
         DateTime dataRecebimento,
         string login,
-        string senha)
+        string senhaHash)
     {
         // Id 0 é reservado ao usuário ainda não persistido (chave gerada pelo banco).
         if (id < 0)
@@ -110,35 +84,28 @@ public bool ContaVerificada { get; private set; }
                 "O nome do usuário não pode ser vazio.",
                 nameof(nome));
 
-        // NOVO: validação do login
         if (string.IsNullOrWhiteSpace(login))
             throw new ArgumentException(
                 "O login do usuário não pode ser vazio.",
                 nameof(login));
 
-        // NOVO: validação da senha
-        if (string.IsNullOrWhiteSpace(senha))
+        if (string.IsNullOrWhiteSpace(senhaHash))
             throw new ArgumentException(
-                "A senha do usuário não pode ser vazia.",
-                nameof(senha));
+                "O hash da senha do usuário não pode ser vazio.",
+                nameof(senhaHash));
 
         Id = id;
         Nome = nome;
         DataRecebimento = dataRecebimento;
-
-        // NOVO: salva o login
         Login = login;
+        SenhaHash = senhaHash;
 
-        // NOVO: transforma a senha em hash antes de armazenar
-        SenhaHash = CriarHashSenha(senha);
-
-        // NOVO: toda conta começa como não verificada
+        // Toda conta começa como não verificada.
         ContaVerificada = false;
 
-        // Reutiliza a validação do método no construtor
+        // Reutiliza a validação do método no construtor.
         AtualizarSalario(salarioMensal);
     }
-    // Adicione dentro da classe Usuario em Usuario.cs:
 
     public void AtualizarNome(string novoNome)
     {
@@ -150,23 +117,18 @@ public bool ContaVerificada { get; private set; }
         Nome = novoNome;
     }
 
-    public void AlterarSenha(string senhaAntiga, string novaSenha)
+    // A troca de senha chega aqui já verificada e já em hash pelo UsuarioService:
+    // comparar senha exige o ISenhaHasher, que não pertence ao domínio.
+    public void AlterarSenhaHash(string novoHash)
     {
-        if (!VerificarSenha(senhaAntiga))
+        if (string.IsNullOrWhiteSpace(novoHash))
         {
-            throw new ArgumentException("A senha atual informada está incorreta.");
+            throw new ArgumentException("O hash da nova senha não pode ser vazio.", nameof(novoHash));
         }
 
-        if (string.IsNullOrWhiteSpace(novaSenha))
-        {
-            throw new ArgumentException("A nova senha não pode ser vazia.", nameof(novaSenha));
-        }
-
-        SenhaHash = CriarHashSenha(novaSenha);
+        SenhaHash = novoHash;
     }
 
-
-    // MÉTODO ORIGINAL
     public void AtualizarSalario(decimal novoSalario)
     {
         if (novoSalario < 0)
@@ -179,71 +141,11 @@ public bool ContaVerificada { get; private set; }
         SalarioMensal = novoSalario;
     }
 
-
-    // MÉTODO ORIGINAL
     public decimal CalcularRendaDisponivel(decimal totalDespesas)
     {
         return SalarioMensal - totalDespesas;
     }
 
-
-    // NOVO: cria uma versão protegida da senha.
-    // A senha original não é armazenada diretamente.
-    private string CriarHashSenha(string senha)
-    {
-        byte[] salt = RandomNumberGenerator.GetBytes(16);
-
-        byte[] hash = Rfc2898DeriveBytes.Pbkdf2(
-            senha,
-            salt,
-            100000,
-            HashAlgorithmName.SHA256,
-            32);
-
-        return $"{Convert.ToBase64String(salt)}:{Convert.ToBase64String(hash)}";
-    }
-
-
-    // NOVO: verifica se a senha digitada
-    // corresponde à senha cadastrada.
-    public bool VerificarSenha(string senha)
-    {
-        if (string.IsNullOrWhiteSpace(SenhaHash))
-            return false;
-
-        string[] partes = SenhaHash.Split(':');
-
-        if (partes.Length != 2)
-            return false;
-
-        byte[] salt = Convert.FromBase64String(partes[0]);
-        byte[] hashArmazenado = Convert.FromBase64String(partes[1]);
-
-        byte[] hashInformado = Rfc2898DeriveBytes.Pbkdf2(
-            senha,
-            salt,
-            100000,
-            HashAlgorithmName.SHA256,
-            32);
-
-        return CryptographicOperations.FixedTimeEquals(
-            hashArmazenado,
-            hashInformado);
-    }
-
-
-    // NOVO: verifica o login e a senha
-    // informados pelo usuário.
-    public bool VerificarLogin(string login, string senha)
-    {
-        return Login.Equals(
-                   login,
-                   StringComparison.OrdinalIgnoreCase)
-               && VerificarSenha(senha);
-    }
-
-
-    // NOVO: confirma que a conta foi verificada.
     public void VerificarConta()
     {
         ContaVerificada = true;

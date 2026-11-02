@@ -1,6 +1,8 @@
+using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Portfy.Data;
+using Portfy.Models;
 using Portfy.Services;
 using Portfy.Services.Contracts;
 
@@ -40,14 +42,14 @@ public class PersistenciaTests : IDisposable
 
         using (AppDbContext contexto = NovoContexto())
         {
-            id = new UsuarioService(contexto)
+            id = new UsuarioService(contexto, new SenhaHasher())
                 .Cadastrar("Ana", 3000m, "ana@portfy.test", "segredo123")
                 .Id;
         }
 
         using (AppDbContext contexto = NovoContexto())
         {
-            var usuario = new UsuarioService(contexto)
+            var usuario = new UsuarioService(contexto, new SenhaHasher())
                 .Autenticar("ANA@PORTFY.TEST", "segredo123");
 
             Assert.NotNull(usuario);
@@ -83,8 +85,8 @@ public class PersistenciaTests : IDisposable
     {
         using (AppDbContext contexto = NovoContexto())
         {
-            new UsuarioService(contexto).Cadastrar("Bruno", 1234.56m, "bruno@portfy.test", "segredo456");
-            new UsuarioService(contexto).Cadastrar("Carla", 5678.987654m, "carla@portfy.test", "segredo789");
+            new UsuarioService(contexto, new SenhaHasher()).Cadastrar("Bruno", 1234.56m, "bruno@portfy.test", "segredo456");
+            new UsuarioService(contexto, new SenhaHasher()).Cadastrar("Carla", 5678.987654m, "carla@portfy.test", "segredo789");
         }
 
         using (AppDbContext contexto = NovoContexto())
@@ -131,7 +133,7 @@ public class PersistenciaTests : IDisposable
 
         using (AppDbContext contexto = NovoContexto())
         {
-            usuarioId = new UsuarioService(contexto)
+            usuarioId = new UsuarioService(contexto, new SenhaHasher())
                 .Cadastrar("Ana", 3000m, "ana@portfy.test", "segredo123")
                 .Id;
 
@@ -153,5 +155,49 @@ public class PersistenciaTests : IDisposable
             Assert.Equal(usuarioId, aporte.OrigemSalarioId);
             Assert.Equal(1, aporte.Id);
         }
+    }
+
+    [Fact]
+    public void Autenticar_SubstituiHashLegadoPorBcrypt()
+    {
+        // Usuário gravado no esquema anterior (PBKDF2 salt:hash), como estaria
+        // em um portfy.db que já existisse antes desta mudança.
+        using (AppDbContext contexto = NovoContexto())
+        {
+            contexto.Usuarios.Add(
+                new Usuario("Ana", 3000m, "ana@portfy.test", CriarHashLegado("segredo123")));
+            contexto.SaveChanges();
+        }
+
+        using (AppDbContext contexto = NovoContexto())
+        {
+            var usuario = new UsuarioService(contexto, new SenhaHasher())
+                .Autenticar("ana@portfy.test", "segredo123");
+
+            Assert.NotNull(usuario);
+            Assert.StartsWith("$2", usuario!.SenhaHash);
+        }
+
+        using (AppDbContext contexto = NovoContexto())
+        {
+            // A atualização foi persistida e o novo hash continua autenticando.
+            Assert.StartsWith("$2", contexto.Usuarios.Single().SenhaHash);
+            Assert.NotNull(new UsuarioService(contexto, new SenhaHasher())
+                .Autenticar("ana@portfy.test", "segredo123"));
+        }
+    }
+
+    private static string CriarHashLegado(string senha)
+    {
+        byte[] salt = RandomNumberGenerator.GetBytes(16);
+
+        byte[] hash = Rfc2898DeriveBytes.Pbkdf2(
+            senha,
+            salt,
+            100_000,
+            HashAlgorithmName.SHA256,
+            32);
+
+        return $"{Convert.ToBase64String(salt)}:{Convert.ToBase64String(hash)}";
     }
 }

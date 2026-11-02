@@ -277,13 +277,14 @@ sequenceDiagram
 
     U->>CAD: preenche nome, login, senha e salario
     CAD->>API: POST api/Usuario/cadastro
+    API->>API: FluentValidationFilter (400 com errors por campo)
     API->>S: LoginJaExiste
     alt login duplicado
         S-->>API: true
         API-->>CAD: 409 com mensagem
     else login livre
         API->>S: Cadastrar
-        S->>DB: insere usuario com SenhaHash PBKDF2
+        S->>DB: insere usuario com SenhaHash BCrypt
         S->>DB: SaveChanges
         API-->>CAD: 201 com id, nome, login e contaVerificada
         CAD->>API: POST api/Usuario/id/verificar

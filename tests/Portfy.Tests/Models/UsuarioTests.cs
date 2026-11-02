@@ -1,11 +1,16 @@
 using Portfy.Models;
+using Portfy.Services;
 
 namespace Portfy.Tests.Models;
 
 public class UsuarioTests
 {
+    // Um único hash BCrypt por execução: o custo de trabalho é proposital e
+    // recalcular em cada teste deixaria a suíte lenta sem ganho de cobertura.
+    private static readonly string HashDaSenha = new SenhaHasher().CriarHash("segredo123");
+
     private static Usuario CriarUsuario(decimal salarioMensal = 3000m) =>
-        new(1, "Ana Souza", salarioMensal, DateTime.UtcNow, "ana@portfy.test", "segredo123");
+        new(1, "Ana Souza", salarioMensal, DateTime.UtcNow, "ana@portfy.test", HashDaSenha);
 
     [Fact]
     public void Construtor_RecusaSalarioNegativo()
@@ -17,23 +22,23 @@ public class UsuarioTests
     public void Construtor_RecusaLoginVazio()
     {
         Assert.Throws<ArgumentException>(() =>
-            new Usuario(1, "Ana Souza", 3000m, DateTime.UtcNow, " ", "segredo123"));
+            new Usuario(1, "Ana Souza", 3000m, DateTime.UtcNow, " ", HashDaSenha));
     }
 
     [Fact]
-    public void Construtor_RecusaSenhaVazia()
+    public void Construtor_RecusaHashVazio()
     {
         Assert.Throws<ArgumentException>(() =>
             new Usuario(1, "Ana Souza", 3000m, DateTime.UtcNow, "ana@portfy.test", " "));
     }
 
     [Fact]
-    public void Construtor_NaoArmazenaASenhaEmTextoPuro()
+    public void Construtor_ArmazenaOHashRecebido()
     {
         var usuario = CriarUsuario();
 
+        Assert.Equal(HashDaSenha, usuario.SenhaHash);
         Assert.NotEqual("segredo123", usuario.SenhaHash);
-        Assert.True(usuario.VerificarSenha("segredo123"));
     }
 
     [Fact]
@@ -43,37 +48,23 @@ public class UsuarioTests
     }
 
     [Fact]
-    public void VerificarSenha_RecusaSenhaDiferente()
-    {
-        Assert.False(CriarUsuario().VerificarSenha("outra-senha"));
-    }
-
-    [Fact]
-    public void AlterarSenha_RecusaSenhaAtualIncorreta()
+    public void AlterarSenhaHash_RecusaHashVazio()
     {
         var usuario = CriarUsuario();
 
-        Assert.Throws<ArgumentException>(() => usuario.AlterarSenha("errada", "nova-senha"));
-        Assert.True(usuario.VerificarSenha("segredo123"));
+        Assert.Throws<ArgumentException>(() => usuario.AlterarSenhaHash(" "));
+        Assert.Equal(HashDaSenha, usuario.SenhaHash);
     }
 
     [Fact]
-    public void AlterarSenha_RecusaNovaSenhaVazia()
+    public void AlterarSenhaHash_SubstituiOEstado()
     {
         var usuario = CriarUsuario();
+        string novoHash = new SenhaHasher().CriarHash("nova-senha");
 
-        Assert.Throws<ArgumentException>(() => usuario.AlterarSenha("segredo123", " "));
-    }
+        usuario.AlterarSenhaHash(novoHash);
 
-    [Fact]
-    public void AlterarSenha_TrocaApenasComASenhaAtualCorreta()
-    {
-        var usuario = CriarUsuario();
-
-        usuario.AlterarSenha("segredo123", "nova-senha");
-
-        Assert.True(usuario.VerificarSenha("nova-senha"));
-        Assert.False(usuario.VerificarSenha("segredo123"));
+        Assert.Equal(novoHash, usuario.SenhaHash);
     }
 
     [Fact]

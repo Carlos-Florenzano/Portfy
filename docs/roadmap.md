@@ -17,14 +17,14 @@ Sequência executável para levar o Portfy do estado atual até o MVP completo. 
 | Item | Situação |
 |---|---|
 | `dotnet build Portfy.csproj` | 0 erros, 0 warnings |
-| `dotnet test tests/Portfy.Tests` | 66 testes, 0 falhas |
+| `dotnet test tests/Portfy.Tests` | 89 testes, 0 falhas |
 | `npm run build` / `npm run lint` | verdes / 0 erros |
 | Persistência | SQLite + EF Core, migration `InitialCreate`, 7 `Configurations`, seed idempotente |
 | Autoridade de estado | única (`AppDbContext`); zero `private static` em `Controllers`/`Services` |
-| Injeção de dependência | 6 contratos em `Services/Contracts/`, `Scoped` |
+| Injeção de dependência | 7 contratos em `Services/Contracts/`, serviços com estado `Scoped`, `IGeradorDeVariacao`/`ISenhaHasher` `Singleton` |
 | Dívidas P0 | todas fechadas (`arch.md` §20) |
 
-**O que ainda não existe** (é o escopo deste roadmap): `Dtos/`, `Middleware/`, autenticação, múltiplas simulações, alocação-meta, rebalanceamento, câmbio, compra/venda por HTTP, relatório por API, telas de carteira/ativo/orçamento, CI e Docker.
+**O que ainda não existe** (é o escopo deste roadmap): `Dtos/` e `Middleware/` para os recursos que não sejam usuário (o cadastro de usuário já foi migrado), autenticação, múltiplas simulações, alocação-meta, rebalanceamento, câmbio, compra/venda por HTTP, relatório por API, telas de carteira/ativo/orçamento, CI e Docker.
 
 ---
 
@@ -53,7 +53,7 @@ Sequência executável para levar o Portfy do estado atual até o MVP completo. 
 | **F5** | Leitura e interface | relatório por DTO, indicador, telas e gráfico | F3, F4 |
 | **F6** | Operação e entrega | CORS por config, CI, Docker, higiene final | F5 |
 
-Status atual: **todas pendentes**. Nenhuma fase iniciada.
+Status atual: **F1/E1.1 concluída** (hash de senha em BCrypt); **E0.1 e E0.2 parciais** (recurso usuário); demais pendentes.
 
 ---
 
@@ -84,9 +84,11 @@ As arestas pontilhadas são os pontos de atenção, detalhados em §8.
 
 Sem `Dtos/` e sem middleware, toda feature nova multiplicaria `new { Mensagem }` e `try/catch` por action. Fechar isso antes é o que impede o resto do roadmap de piorar o código.
 
-#### E0.1 — Criar `Dtos/` e remover DTO aninhado dos controllers
+#### E0.1 — Criar `Dtos/` e remover DTO aninhado dos controllers — ⚠ parcial (usuário feito em 2026-11-01)
 
 - **Depende:** — · **Fecha:** ADR-004, dívida §6.2 linha 2 e 3
+- **Feito:** `Dtos/Usuario/` com `CadastroRequest`, `LoginRequest`, `AtualizarUsuarioRequest`, `AtualizarSalarioRequest`, `AlterarSenhaRequest` e respostas tipadas; `UsuarioController` sem DTO aninhado nem `new { }`.
+- **Pendente:** `Dtos/Ativo/`, `Dtos/Carteira/`, `Dtos/Aporte/`, `Dtos/Orcamento/` e a conversão dos demais controllers.
 - **Arquivos:** `Dtos/Usuario/`, `Dtos/Ativo/`, `Dtos/Carteira/`, `Dtos/Aporte/`, `Dtos/Orcamento/`; `Controllers/*.cs`
 - **Passos:**
   1. Um arquivo por DTO de entrada e um por DTO de resposta, por recurso.
@@ -97,9 +99,11 @@ Sem `Dtos/` e sem middleware, toda feature nova multiplicaria `new { Mensagem }`
 - **Aceite:** `grep -rn "new {" Controllers` vazio; resposta de cada endpoint idêntica em campos à anterior.
 - **Gate:** `dotnet build` + smoke de 1 requisição por verbo.
 
-#### E0.2 — Middleware único de erro com ProblemDetails
+#### E0.2 — Middleware único de erro com ProblemDetails — ⚠ parcial (usuário feito em 2026-11-01)
 
 - **Depende:** E0.1 · **Fecha:** ADR-005, P1-c, dívida §6.2
+- **Feito:** `Middleware/ExceptionHandlingMiddleware.cs` registrado em `Program.cs`; `UsuarioController` sem `try/catch`; mapa completo de exceções implementado e testado.
+- **Pendente:** os demais controllers ainda têm `try/catch` e envelope `{ Mensagem }` (P1-c aberta para eles).
 - **Arquivos:** `Middleware/ExceptionHandlingMiddleware.cs`, `Program.cs`, `Controllers/*.cs`
 - **Passos:**
   1. Middleware traduz: `ArgumentException`/`ArgumentOutOfRangeException` → 400, `KeyNotFoundException` → 404, `InvalidOperationException` → 422, `DbUpdateException` de unicidade → 409, resto → 500 sem stack trace.
@@ -149,17 +153,17 @@ Sem `Dtos/` e sem middleware, toda feature nova multiplicaria `new { Mensagem }`
 
 Hoje qualquer cliente alcança qualquer `id` e o login não emite credencial (`arch.md` §15, item 4). Enquanto isso não fecha, toda feature de carteira nasce sem dono.
 
-#### E1.1 — `ISenhaHasher` e PBKDF2 parametrizado
+#### E1.1 — `ISenhaHasher` e BCrypt — ✅ executado em 2026-11-01
 
-- **Depende:** F0 · **Fecha:** P1-d, `arch.md` §13 item 5
-- **Arquivos:** `Services/Contracts/ISenhaHasher.cs`, `Services/SenhaHasher.cs`, `Models/Usuario.cs`, `Program.cs`
+- **Depende:** F0 · **Fecha:** P1-d, `arch.md` §13 item 5 · **ADR:** [ADR-018](arch.md#19-decisões-vinculantes)
+- **Arquivos:** `Services/Contracts/ISenhaHasher.cs`, `Services/SenhaHasher.cs`, `Models/Usuario.cs`, `Services/UsuarioService.cs`, `Program.cs`
 - **Passos:**
-  1. Extrair `CriarHashSenha`/`VerificarSenha` de `Usuario` para `SenhaHasher`.
-  2. Iterações por configuração, mínimo 210.000; salt por senha; `FixedTimeEquals` mantido.
-  3. `Usuario` recebe `SenhaHash` pronto e expõe só `VerificarSenha` via hasher injetado no serviço.
-  4. Teste de hash legado: hash antigo com 100k continua verificando.
-- **Aceite:** `grep -rn "Rfc2898DeriveBytes" Models` vazio; login com usuário anterior funciona.
-- **Gate:** `dotnet test`.
+  1. ✅ Extrair `CriarHashSenha`/`VerificarSenha` de `Usuario` para `SenhaHasher`.
+  2. ✅ BCrypt com fator de trabalho 12 (2^12 rodadas internas) e salt por hash; substitui a meta de 210.000 iterações de PBKDF2, conforme ADR-018.
+  3. ✅ `Usuario` recebe `SenhaHash` pronto e expõe `AlterarSenhaHash`; verificação e regravação ficam no `UsuarioService`.
+  4. ✅ Teste de hash legado: hash PBKDF2 de 100k continua verificando e é regravado em BCrypt no primeiro login válido.
+- **Aceite:** ✅ `grep -rn "Rfc2898DeriveBytes" Models` vazio (a verificação legada vive em `Services/SenhaHasher.cs`); login com usuário anterior funciona.
+- **Gate:** ✅ `dotnet test` — 89/89 casos.
 
 #### E1.2 — JWT: emitir, validar e exigir
 
@@ -451,12 +455,12 @@ Até aqui a API sabe fazer; o produto ainda não mostra. Esta fase fecha o funil
 
 | Etapa | Fecha dívida (`arch.md` §20) | Entrega funcionalidade do MVP |
 |---|---|---|
-| E0.1 | §6.2 (DTO aninhado) | — |
-| E0.2 | P1-c | — |
+| E0.1 | §6.2 (DTO aninhado) | ⚠ usuário feito (2026-11-01) |
+| E0.2 | P1-c | ⚠ usuário feito (2026-11-01) |
 | E0.3 | P2-d | — |
 | E0.4 | P2-b, P2-c | — |
 | E0.5 | — | contrato espelhado no SPA |
-| E1.1 | P1-d | — |
+| E1.1 | P1-d | ✅ 2026-11-01 (ADR-018) |
 | E1.2 | P1-a | — |
 | E1.3 | P1-g | — |
 | E1.4 | — | sessão, cabeçalho e logout no SPA |

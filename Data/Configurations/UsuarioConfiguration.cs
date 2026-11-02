@@ -18,7 +18,9 @@ public sealed class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         builder.Property(u => u.Login).IsRequired().HasMaxLength(200).UseCollation("NOCASE");
         builder.HasIndex(u => u.Login).IsUnique();
 
-        // Continua sendo o hash PBKDF2 (salt:hash em Base64); a senha em texto puro nunca é persistida.
+        // Hash BCrypt (60 caracteres); a coluna mantém 400 para aceitar também os
+        // hashes PBKDF2 antigos (salt:hash em Base64) até serem regravados. A senha
+        // em texto puro nunca é persistida.
         builder.Property(u => u.SenhaHash).IsRequired().HasMaxLength(400);
 
         builder.Property(u => u.SalarioMensal).HasPrecision(18, 2);

@@ -202,12 +202,13 @@ Fórmula em um único lugar, determinística e coberta por teste de borda (`tota
 | Classe / interface | Arquivo | Papel | Estado |
 |---|---|---|---|
 | `IClock` | `Services/Contracts/IClock.cs` | remove `DateTime.Now` do domínio; data determinística em teste | `criar` · onda 2 · `arch.md` §3.2, P2-d |
-| `ISenhaHasher` | `Services/Contracts/ISenhaHasher.cs` | tirar PBKDF2 de `Models/Usuario.cs` | `criar` · onda 5 · §13.5 |
-| `SenhaHasher` | `Services/SenhaHasher.cs` | implementação de `ISenhaHasher`, ≥ 210k iterações | `criar` · onda 5 · P1-d |
-| `ExceptionHandlingMiddleware` | `Middleware/ExceptionHandlingMiddleware.cs` | traduz exceção → `ProblemDetails` em um único ponto | `criar` · onda 5 · ADR-005 |
-| `Dtos/<Recurso>Dto` | `Dtos/` | contrato de entrada/saída tipado (hoje a pasta não existe) | `criar` · onda 5 · ADR-004 |
+| `ISenhaHasher` | `Services/Contracts/ISenhaHasher.cs` | tirar o hash de `Models/Usuario.cs` | `existe` · onda 5 · §13.5 |
+| `SenhaHasher` | `Services/SenhaHasher.cs` | implementação de `ISenhaHasher` com BCrypt (fator 12) e ponte PBKDF2 | `existe` · onda 5 · ADR-018 |
+| `ExceptionHandlingMiddleware` | `Middleware/ExceptionHandlingMiddleware.cs` | traduz exceção → `ProblemDetails` em um único ponto | `existe` · onda 5 · ADR-005 |
+| `Dtos/<Recurso>Dto` | `Dtos/` | contrato de entrada/saída tipado | `existe` para usuário (2026-11-01) · onda 5 · ADR-004 |
+| `FluentValidationFilter` | `Filters/FluentValidationFilter.cs` | executa os validadores de DTO antes da action | `existe` · onda 5 · ADR-019 |
 
-`ISenhaHasher` só entra quando `Usuario` deixar de fazer hash — interface sem consumidor é proibida (§3.2).
+`ISenhaHasher` só existe porque `Usuario` deixou de fazer hash — interface sem consumidor é proibida (§3.2).
 
 ---
 
@@ -224,8 +225,8 @@ Fórmula em um único lugar, determinística e coberta por teste de borda (`tota
 | `RelatorioFinanceiroService` | `Services/` | serviço de leitura | `criar` | visão consolidada | 4 |
 | `RelatorioFinanceiroDto` e resumos | `Dtos/` | DTO | `criar` | visão consolidada | 4 |
 | `IndicadorService` | `Services/` | serviço puro | `criar` | taxa de poupança | 4 |
-| `ISenhaHasher` / `SenhaHasher` | `Services/` | contrato + serviço | `criar` | coesão de `Usuario` | 5 |
-| `ExceptionHandlingMiddleware` | `Middleware/` | middleware | `criar` | contrato de erro | 5 |
+| `ISenhaHasher` / `SenhaHasher` | `Services/` | contrato + serviço | `existe` | coesão de `Usuario` | 5 |
+| `ExceptionHandlingMiddleware` | `Middleware/` | middleware | `existe` | contrato de erro | 5 |
 | `CarteiraSimulada` | `Models/` | entidade | `alterar` | múltiplas simulações | 1 |
 | `Posicao` | `Models/` | entidade | `alterar` | valor atual / FKs explícitas | 1 |
 | `AporteSimulado` | `Models/` | entidade | `alterar` | aporte vinculado à carteira | 1 |
@@ -321,12 +322,16 @@ classDiagram
         +Agora() DateTime
     }
     class ISenhaHasher {
-        <<criar>>
+        <<existe>>
         +CriarHash(senha) string
         +Verificar(senha, hash) bool
+        +PrecisaAtualizar(hash) bool
     }
     class ExceptionHandlingMiddleware {
-        <<criar>>
+        <<existe>>
+    }
+    class FluentValidationFilter {
+        <<existe>>
     }
 
     RelatorioFinanceiroService ..> RelatorioFinanceiroDto : produz
@@ -365,6 +370,8 @@ A ordem não é preferência estética: cada onda destrava a seguinte, porque a 
 | **3** | `Pais`/`Moeda` em `Ativo`, `CotacaoCambio`, `CambioService` | ativos globais e visão unificada por moeda |
 | **4** | `RelatorioFinanceiroService`, DTOs, `IndicadorService` | gráfico macro/micro e taxa de poupança |
 | **5** | `Dtos/` por recurso, `ExceptionHandlingMiddleware`, `SenhaHasher`/`ISenhaHasher` | contrato de API estável e erro uniforme |
+
+**Estado da onda 5 em 2026-11-01:** `Dtos/Usuario/`, `Filters/FluentValidationFilter`, `ExceptionHandlingMiddleware` e `SenhaHasher`/`ISenhaHasher` existem; `Dtos/` dos demais recursos continua pendente.
 
 Cada onda termina com migration + testes das invariantes que introduziu — uma onda não abre sem a anterior verde (`arch.md` §21).
 

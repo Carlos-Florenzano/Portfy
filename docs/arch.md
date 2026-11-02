@@ -107,7 +107,7 @@ A AV1 sugere "uma interface para a carteira". A decisão deste documento (ADR-01
 | Remover `UI/Dashboard.cs` e a pasta `UI/` | ✅ **resolvido** (commit `cbe4c05`) |
 | Introduzir herança/polimorfismo em `Ativo` | ✅ **resolvido** (commit `4a8be0a`) |
 | Introduzir DI + interface | ✅ **resolvido** (R6: 6 contratos em `Services/Contracts/`, registrados em `Program.cs`) |
-| Escrever testes das invariantes | ✅ **resolvido** (`tests/Portfy.Tests`, 66 testes em 2026-11-01) |
+| Escrever testes das invariantes | ✅ **resolvido** (`tests/Portfy.Tests`, 89 testes em 2026-11-01) |
 | Trocar `alert`/`console.error` por erro em tela + interceptor | ✅ **resolvido** (interceptor em `services/api.ts`) |
 | Resíduo de console no backend | ⚠️ `Services/RelatorioFinanceiro.cs` ainda imprime (`Console.Clear`/`WriteLine`) |
 
@@ -125,7 +125,7 @@ Medido em **2026-10-30** (fechamento da AV1) e **remedido em 2026-11-01**, após
 | Migrations EF | `ls Data/Migrations` | **PASSA** — `20261101003441_InitialCreate` + `AppDbContextModelSnapshot` (2026-11-01) |
 | Configuração EF por entidade | `ls Data/Configurations` | **PASSA** — 7 `IEntityTypeConfiguration` (2026-11-01) |
 | Seed de ativos | `ls Data/Seed` | **PASSA** — `SeedInicial.cs`, idempotente (2026-11-01) |
-| Projeto de testes | `dotnet test tests/Portfy.Tests` | **PASSA** — 66 testes, 0 falhas (2026-11-01) |
+| Projeto de testes | `dotnet test tests/Portfy.Tests` | **PASSA** — 89 testes, 0 falhas (2026-11-01) |
 | `AppDbContext` em uso | busca por `AppDbContext` em `*.cs` | **PASSA** — consumido pelos 5 serviços `Scoped`; nenhum controller o referencia (2026-11-01) |
 | `*.db` fora do git | `grep db .gitignore` | **PASSA** — `*.db`, `*.db-shm`, `*.db-wal` (linhas 12-14) |
 | Autenticação | busca por `AddAuthentication` / `[Authorize]` | **inexistente** |
@@ -173,6 +173,8 @@ Versões verificadas nos arquivos do repositório. **Trocar qualquer item exige 
 | ORM | EF Core + provider SQLite | 10.0.13 | `Portfy.csproj:18` |
 | Tooling EF | `Microsoft.EntityFrameworkCore.Design` | 10.0.13 | `Portfy.csproj:14` |
 | Documentação de API | Swashbuckle (Swagger UI, só Development) | 6.5.0 | `Portfy.csproj:19` |
+| Validação de entrada | FluentValidation + `FluentValidation.DependencyInjectionExtensions` (ADR-019) | 12.2.0 | `Portfy.csproj:15-16` |
+| Hash de senha | BCrypt.Net-Next (ADR-018) | 4.0.3 | `Portfy.csproj:14` |
 | Banco | SQLite (`portfy.db`) | — | `appsettings.json:8` |
 | Análise estática | `Nullable` + `ImplicitUsings` | — | `Portfy.csproj:5-6` |
 
@@ -221,6 +223,7 @@ Versões verificadas nos arquivos do repositório. **Trocar qualquer item exige 
 | Pasta | Uma única responsabilidade | Motivo de mudança |
 |---|---|---|
 | `Controllers/` | traduzir HTTP ↔ chamadas de `Services`; decidir status code | muda o contrato de rota/verbo |
+| `Filters/` | aplicar os validadores FluentValidation antes da action | muda a política de validação de forma |
 | `Dtos/` | descrever o formato de entrada e saída | muda o payload |
 | `Services/` | orquestrar regra de negócio e persistência | muda a regra de negócio |
 | `Models/` | proteger invariantes do domínio | muda a regra intrínseca da entidade |
@@ -231,9 +234,9 @@ Versões verificadas nos arquivos do repositório. **Trocar qualquer item exige 
 
 | Proibição | Onde é violado hoje |
 |---|---|
-| Controller devolver objeto anônimo (`new { ... }`) | todos os controllers |
-| Controller conter DTO aninhado | `UsuarioController.cs:13-38`, `AtivoController.cs:24-27`, `AporteController.cs:26-30` |
-| Controller duplicar `try/catch (ArgumentException)` | `UsuarioController.cs` (4 blocos) |
+| Controller devolver objeto anônimo (`new { ... }`) | `AtivoController.cs`, `CarteiraController.cs`, `OrcamentoController.cs`, `AporteController.cs` (`UsuarioController` já migrado para `Dtos/`) |
+| Controller conter DTO aninhado | `AtivoController.cs:24-27`, `AporteController.cs:26-30` (`UsuarioController` já migrado) |
+| Controller duplicar `try/catch (ArgumentException)` | `AtivoController.cs`, `OrcamentoController.cs`, `AporteController.cs` (`UsuarioController` já usa o middleware) |
 | Controller/Service guardar estado em `static` mutável | ✅ corrigido — estado vive nos serviços injetados (`Services/`), registrados em `Program.cs` |
 | `Services/` escrever em `Console` | `Services/RelatorioFinanceiro.cs` |
 | Código morto / duplicado | `Models/Posicao.cs` está **inteiro comentado**; a classe real vive em `Models/CarteiraSimulada.cs` |
@@ -296,6 +299,7 @@ Portfy/
 ├── appsettings.Development.json   # (a criar, quando houver configuração de dev)
 ├── Properties/launchSettings.json # (a criar; hoje a porta vem do default do Kestrel)
 ├── Controllers/                   # borda HTTP — 1 controller por recurso
+├── Filters/                       # filtro global de validação (FluentValidation → ProblemDetails)
 ├── Dtos/                          # contratos, agrupados por recurso
 │   ├── Usuario/{CadastroRequest,LoginRequest,UsuarioResponse}.cs
 │   ├── Ativo/
@@ -480,7 +484,7 @@ Conflito real: os modelos validam no construtor e expõem `private set`; o EF pr
 2. `Id` é `public int Id { get; private set; }`. `get;`-only puro impede materialização e é proibido em entidade persistida.
 3. Invariantes ficam em **métodos de domínio** (`AtualizarSalario`, `AdicionarDespesa`), não apenas no construtor: um objeto vindo do banco nunca deve poder violar invariante persistida.
 4. Validação de **entrada do usuário** mora no DTO + `Services`. O modelo valida **invariante de domínio**.
-5. `Usuario` não faz hash de senha; hash é de `Services/SenhaHasher.cs` (o próprio comentário em `Models/Usuario.cs:2-3` reconhece isso).
+5. `Usuario` não faz hash de senha; hash é de `Services/SenhaHasher.cs` (`ISenhaHasher`, ADR-013/ADR-018). O modelo recebe `SenhaHash` pronto e só expõe `AlterarSenhaHash`.
 6. Nenhum modelo acessa `AppDbContext`, `IConfiguration`, `Clock`/`Random` estáticos ou serviços externos.
 7. `Ativo` tem `Id` com `private set` e construtor protegido para TPH. ✅ **cumprido em 2026-11-01.**
 
@@ -492,7 +496,7 @@ Conflito real: os modelos validam no construtor e expõem `private set`; o EF pr
 
 | Nível | Onde | O que valida | Como falha |
 |---|---|---|---|
-| Forma | `Dtos/` + `[ApiController]` | obrigatório, faixa, formato | `400` automático do ModelState |
+| Forma | `Dtos/` + `Filters/FluentValidationFilter` | obrigatório, faixa, formato | `400` com `ValidationProblemDetails` (erros por campo) |
 | Negócio | `Services/` | duplicidade, saldo, soma 100%, câmbio ausente | exceção tipada → `400`/`409`/`422` |
 | Invariante | `Models/` | estado impossível | `ArgumentException`/`InvalidOperationException` → `400` |
 
@@ -511,7 +515,7 @@ Conflito real: os modelos validam no construtor e expõem `private set`; o EF pr
 
 1. **CORS por allowlist** vinda de configuração. Hoje hardcoded no bloco `AddCors` de `Program.cs` (`localhost:5173`, `localhost:3000`). `AllowAnyOrigin` proibido.
 2. **`AllowedHosts: "*"`** (`appsettings.json:7`) deve ser substituído por hosts explícitos por ambiente.
-3. **Senhas:** PBKDF2-SHA256, salt por usuário, `CryptographicOperations.FixedTimeEquals`, ≥ 210.000 iterações (hoje 100.000). Nunca logar senha/hash/salt; nunca retornar `SenhaHash` em DTO.
+3. **Senhas:** BCrypt com fator de trabalho 12 (ADR-018), salt por hash. Hashes PBKDF2 de versões anteriores continuam verificando (`salt:hash`, 100.000 iterações, `FixedTimeEquals`) e são substituídos por BCrypt no primeiro login válido. Nunca logar senha/hash/salt; nunca retornar `SenhaHash` em DTO.
 4. **Autenticação não existe.** `UseAuthorization()` sem `AddAuthentication()` não protege endpoint algum (zero `[Authorize]`). É **falsa garantia de segurança**: até ADR-010, todos os endpoints são declaradamente abertos e `localStorage.usuarioLogado` não é sessão.
 5. **Segredos nunca no repositório.** `appsettings.json` só valores não sensíveis; segredo real via variável de ambiente ou `dotnet user-secrets`.
 6. **Login exige rate limiting** antes de produção (P1-g). Sem limite, brute-force é trivial.
@@ -644,7 +648,7 @@ Todas devem retornar **vazio** (ou o valor indicado). São baratas e executávei
 | Sem **chamada** a `EnsureCreated` | `grep -rn "\.EnsureCreated(" --include="*.cs" .` | vazio | ✅ vazio (há 2 menções em comentário, em `Program.cs:70` e `AppDbContextEmMemoria.cs:15`) |
 | Sem `DateTime.Now` | `grep -rn "DateTime.Now" --include="*.cs" Models Services Controllers Data` | vazio | ❌ 3 ocorrências em `Models/` (P2-d) |
 | Build | `dotnet build Portfy.csproj` | 0 erros | ✅ 0 erros, 0 warnings |
-| Testes | `dotnet test tests/Portfy.Tests` | 0 falhas | ✅ 66/66 |
+| Testes | `dotnet test tests/Portfy.Tests` | 0 falhas | ✅ 89/89 |
 
 Comando com `--include=*.cs` **sem aspas** falha silenciosamente no zsh (o shell tenta expandir o padrão): o gate devolve saída vazia e parece passar. Sempre citar o padrão.
 
@@ -681,6 +685,8 @@ O esperado não muda quando o resultado está vermelho: gate que falha é dívid
 | ADR-015 | Câmbio do MVP é tabela `CotacaoCambio` com atualização manual; sem API externa | requer valor explícito; ausência falha (`422`), não assume 1.0 |
 | ADR-016 | Seed de ativos roda em migration idempotente | MVP funciona offline com catálogo previsível |
 | ADR-017 | Preview "e se?" não persiste nada | endpoint de simulação não escreve no banco |
+| ADR-018 | Hash de senha em BCrypt (fator 12) via `ISenhaHasher`, com ponte de verificação para hashes PBKDF2 existentes | substitui a exigência de PBKDF2 ≥ 210k (§15, item 3); usuários antigos não ficam bloqueados |
+| ADR-019 | Validação de forma em FluentValidation aplicada por um filtro global, não por `DataAnnotations` nem por `if` no controller | uma regra de payload por DTO, em um único ponto de execução |
 
 ---
 
@@ -704,8 +710,8 @@ O esperado não muda quando o resultado está vermelho: gate que falha é dívid
 |---|---|---|
 | P1-a | Sem autenticação; login não emite credencial | JWT emitido/validado; carteira com `[Authorize]` |
 | P1-b | ✅ resolvido em 2026-10-30 — `tests/Portfy.Tests` com testes das invariantes de R6 (**66** em 2026-11-01) | `dotnet test` = 0 falhas |
-| P1-c | Erros em formato legado e duplicado | middleware único + ProblemDetails |
-| P1-d | PBKDF2 com 100k iterações | ≥ 210k, parametrizado |
+| P1-c | ✅ resolvido em 2026-11-01 para usuário — erros em `ProblemDetails` pelo middleware único, sem `try/catch` por action; os demais controllers seguem com o envelope legado | middleware único + ProblemDetails |
+| P1-d | ✅ resolvido em 2026-11-01 — hash de senha em BCrypt (fator 12) com ponte PBKDF2 (ADR-018) | ≥ 210k de custo efetivo, parametrizado |
 | P1-e | `AllowedHosts: "*"` e CORS hardcoded | allowlist por configuração |
 | P1-f | ✅ resolvido em 2026-10-30 — erro em tela + interceptor; lint em 0 erros | `npm run lint` = 0 erros |
 | P1-g | Sem rate limiting no login | limite por IP/login com resposta `429` |

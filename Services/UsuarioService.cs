@@ -11,20 +11,22 @@ namespace Portfy.Services;
 ///
 /// As operações são síncronas porque o contrato público (IUsuarioService e as
 /// actions dos controllers) é síncrono e é preservado como requisito: a suíte de
-/// 61 testes chama estes métodos diretamente, e tornar tudo assíncrono exigiria
+/// testes chama estes métodos diretamente, e tornar tudo assíncrono exigiria
 /// alterar controller, contrato e testes de uma só vez.
 public sealed class UsuarioService : IUsuarioService
 {
     private readonly AppDbContext _db;
+    private readonly ISenhaHasher _senhaHasher;
 
-    public UsuarioService(AppDbContext db)
+    public UsuarioService(AppDbContext db, ISenhaHasher senhaHasher)
     {
         _db = db ?? throw new ArgumentNullException(nameof(db));
+        _senhaHasher = senhaHasher ?? throw new ArgumentNullException(nameof(senhaHasher));
     }
 
     // Seam da suíte de testes: mesmo serviço, banco SQLite em memória isolado
     // (sem arquivo físico e sem coleção C# paralela).
-    public UsuarioService() : this(AppDbContextEmMemoria.Criar())
+    public UsuarioService() : this(AppDbContextEmMemoria.Criar(), new SenhaHasher())
     {
     }
 
@@ -32,8 +34,9 @@ public sealed class UsuarioService : IUsuarioService
 
     public Usuario Cadastrar(string nome, decimal salarioMensal, string login, string senha)
     {
-        // Id 0 = sem identidade: a chave é gerada pelo banco (arch §9.4).
-        var usuario = new Usuario(nome, salarioMensal, login, senha);
+        // O hash é calculado antes de tocar no domínio: o modelo nunca vê a
+        // senha em texto puro (arch §13, item 5).
+        var usuario = new Usuario(nome, salarioMensal, login, _senhaHasher.CriarHash(senha));
 
         _db.Usuarios.Add(usuario);
         _db.SaveChanges();
@@ -83,7 +86,11 @@ public sealed class UsuarioService : IUsuarioService
         if (usuario is null)
             return null;
 
-        usuario.AlterarSenha(senhaAtual, novaSenha);
+        // Comparar a senha atual é regra de aplicação, não do modelo.
+        if (!_senhaHasher.Verificar(senhaAtual, usuario.SenhaHash))
+            throw new ArgumentException("A senha atual informada está incorreta.");
+
+        usuario.AlterarSenhaHash(_senhaHasher.CriarHash(novaSenha));
 
         _db.SaveChanges();
 
@@ -106,11 +113,21 @@ public sealed class UsuarioService : IUsuarioService
     public Usuario? Autenticar(string login, string senha)
     {
         // Comparação do login é feita no SQL com COLLATE NOCASE (ver UsuarioConfiguration).
-        Usuario? usuario = _db.Usuarios
-            .AsNoTracking()
-            .FirstOrDefault(u => u.Login == login);
+        // A entidade é rastreada para permitir a atualização do hash legado abaixo.
+        Usuario? usuario = _db.Usuarios.FirstOrDefault(u => u.Login == login);
 
-        return usuario is not null && usuario.VerificarSenha(senha) ? usuario : null;
+        if (usuario is null || !_senhaHasher.Verificar(senha, usuario.SenhaHash))
+            return null;
+
+        // Hash de esquema anterior (PBKDF2) é substituído por BCrypt no primeiro
+        // login válido: a senha em texto puro só existe neste ponto do fluxo.
+        if (_senhaHasher.PrecisaAtualizar(usuario.SenhaHash))
+        {
+            usuario.AlterarSenhaHash(_senhaHasher.CriarHash(senha));
+            _db.SaveChanges();
+        }
+
+        return usuario;
     }
 
     public Usuario? VerificarConta(int id)

@@ -4,9 +4,9 @@ Inventário funcional **derivado do código-fonte**, não do que se pretende con
 
 | Item | Valor |
 |---|---|
-| Base de referência | `main` @ `34f2657` (2026-11-01), depois do merge do SQLite/EF Core |
-| Última verificação | `dotnet test tests/Portfy.Tests` → **66/66 aprovados**; `dotnet build Portfy.csproj` → 0 erros, 0 warnings; `cd frontend && npm run build && npm run lint` → verdes |
-| Escopo | API ASP.NET Core (`Controllers/`, `Services/`, `Models/`, `Data/`) + SPA React (`frontend/src/`) |
+| Base de referência | `main` @ `f29addc` (2026-11-01) + alterações locais de cadastro/validação (não commitadas) |
+| Última verificação | `dotnet test tests/Portfy.Tests` → **89/89 aprovados**; `dotnet build Portfy.csproj` → 0 erros, 0 warnings; `cd frontend && npm run build && npm run lint` → verdes |
+| Escopo | API ASP.NET Core (`Controllers/`, `Dtos/`, `Filters/`, `Middleware/`, `Services/`, `Models/`, `Data/`) + SPA React (`frontend/src/`) |
 | Não coberto | `frontend/node_modules`, `bin/`, `obj/`, `docs/`, `notas/` |
 
 ## 0. Relação com os outros documentos
@@ -27,7 +27,7 @@ Regra: se o código e este documento divergirem, o código vence e este document
 | **Órfã** | A classe existe e compila, nenhum consumidor a referencia. |
 | **Ausente** | Não existe no código. |
 
-O estado é persistido em SQLite: `AppDbContext` é registrado como `Scoped`, os cinco serviços o recebem por construtor e cada escrita passa por `SaveChanges`; só `IGeradorDeVariacao` é `Singleton`. O critério **Completa** abaixo mede domínio + endpoint + tela + teste — não persistência, que já é única e está descrita em §9.
+O estado é persistido em SQLite: `AppDbContext` é registrado como `Scoped`, os cinco serviços o recebem por construtor e cada escrita passa por `SaveChanges`; `IGeradorDeVariacao` e `ISenhaHasher` são `Singleton` (sem estado, sem banco). O critério **Completa** abaixo mede domínio + endpoint + tela + teste — não persistência, que já é única e está descrita em §9.
 
 ## 2. Visão geral: domínio → classes
 
@@ -57,24 +57,24 @@ O que faz: cria um usuário com nome, salário mensal, login e senha; o login pa
 
 Regras aplicadas, em ordem:
 
-1. `nome`, `login` e `senha` não podem ser vazios → `400`.
-2. `salarioMensal` não pode ser negativo → `400`.
-3. login já existente (comparação sem diferenciar maiúsculas) → `409 Conflict`.
-4. `Usuario` valida `id > 0`, `nome` não vazio, `login` não vazio, `senha` não vazia, `salário >= 0` → `ArgumentException` → `400`.
-5. Senha é convertida em hash **PBKDF2-SHA256, 100 000 iterações, salt aleatório de 16 bytes, 32 bytes de saída**, armazenada como `salt:hash` em `SenhaHash`. A senha em texto puro não é guardada em campo algum.
+1. Forma (`Dtos/Usuario/CadastroRequestValidator`, FluentValidation): `nome` não vazio, 3 a 200 caracteres; `login` não vazio, 3 a 200 caracteres; `senha` de 8 a 64 caracteres; `salarioMensal >= 0`. Violação → `400` em `ProblemDetails` (RFC 7807) com `errors` por campo, produzido pelo `FluentValidationFilter`.
+2. Login já existente (comparação sem diferenciar maiúsculas) → `409 Conflict` em `ProblemDetails`.
+3. `Usuario` valida `id >= 0`, `nome` não vazio, `login` não vazio, hash de senha não vazio e `salário >= 0` → `ArgumentException` → `400` pelo `ExceptionHandlingMiddleware` (sem `try/catch` na action).
+4. A senha vira hash **BCrypt, fator de trabalho 12** em `Services/SenhaHasher.cs` (ADR-018) antes de entrar no domínio: `Usuario` guarda apenas `SenhaHash` e nunca recebe a senha em texto puro.
+5. Hash PBKDF2 gravado por versões anteriores continua verificando e é substituído por BCrypt no primeiro login bem-sucedido.
 6. Toda conta nasce com `ContaVerificada = false`.
 7. `Id` é gerado pelo banco (`ValueGeneratedOnAdd`); `Id = 0` significa "ainda sem identidade" e é o valor usado pelo construtor de domínio.
-8. Sucesso → `201 Created` com `Location` apontando para `GET /api/usuario/{id}`.
+8. Sucesso → `201 Created` com `Location` apontando para `GET /api/usuario/{id}` e corpo `UsuarioConfirmadoResponse`.
 
 Tela: `Cadastro.tsx` (nome, e-mail como login, salário, senha e confirmação; valida senha = confirmação no cliente).
 
 ### 3.2 Login — **Completa** (sem sessão)
 
-`POST /api/usuario/login` → `UsuarioController.Login` → `UsuarioService.Autenticar` → `Usuario.VerificarSenha`.
+`POST /api/usuario/login` → `UsuarioController.Login` → `UsuarioService.Autenticar` → `ISenhaHasher.Verificar`.
 
 O que faz: autentica por login + senha e devolve id, nome, login e situação da conta.
 
-- Login é comparado sem diferenciar maiúsculas; a senha é comparada com `CryptographicOperations.FixedTimeEquals` (tempo constante).
+- Login é comparado sem diferenciar maiúsculas; a senha é comparada pelo `ISenhaHasher`: BCrypt `Verify` (tempo constante) ou, para hash legado, PBKDF2 com `FixedTimeEquals`.
 - Credencial inválida → `401`. Conta existente mas não verificada → `401` com mensagem própria.
 - **Não há emissão de token, cookie ou sessão.** O SPA grava `{ id, nome, login }` em `localStorage["usuarioLogado"]` (`Login.tsx`); nenhum endpoint valida esse estado. `Dashboard.tsx` trata conteúdo inválido como "sem sessão".
 
@@ -99,11 +99,11 @@ Tela: `Dashboard.tsx`, modo "Editar Perfil" (nome + salário). Se o nome for inv
 
 ### 3.6 Atualização isolada de salário — **Exposta na API, sem tela**
 
-`PUT /api/usuario/{id}/salario` → valida `> 0` → devolve salário anterior e novo. Não há cliente em `frontend/src/services/UsuarioService.ts`.
+`PUT /api/usuario/{id}/salario` → `AtualizarSalarioRequestValidator` exige valor `> 0` → devolve salário anterior e novo. Não há cliente em `frontend/src/services/UsuarioService.ts`.
 
 ### 3.7 Alteração de senha — **Exposta na API, sem tela**
 
-`PUT /api/usuario/{id}/senha` → `Usuario.AlterarSenha(senhaAtual, novaSenha)`: exige a senha atual correta e nova senha não vazia; regrava o hash. Senha atual errada → `400`.
+`PUT /api/usuario/{id}/senha` → `UsuarioService.AlterarSenha`: exige a senha atual correta (verificada pelo `ISenhaHasher`) e nova senha de 8 a 64 caracteres, diferente da atual; regrava o hash BCrypt. Senha atual errada → `400`.
 
 ### 3.8 Exclusão de conta — **Completa**
 
@@ -261,28 +261,31 @@ Funil de integração: **16 endpoints** existem na API (`/api/usuario` 9, `/api/
 
 1. **Validação na construção do objeto**: `Models/` rejeita estado inválido no construtor ou no método que altera o estado; setters são privados/get-only, e mutações passam por métodos com nome de regra (`AtualizarPreco`, `AdicionarDespesa`, `ReduzirQuantidade`).
 2. **Dinheiro em `decimal`**, arredondado para 2 casas nos pontos de cálculo de preço e rendimento; exposição monetária formatada em pt-BR/BRL apenas no SPA.
-3. **Erros de domínio → HTTP**: `ArgumentException`/`ArgumentOutOfRangeException` → `400`; recurso inexistente → `404`; conflito de unicidade de login → `409`; falha de autenticação → `401`. As mensagens vão no envelope `{ Mensagem }` (ou `detail`, quando o `[ApiController]` responde `ProblemDetails`).
+3. **Erros de domínio → HTTP** pelo `ExceptionHandlingMiddleware` (único ponto): `ArgumentException`/`ArgumentOutOfRangeException` → `400`; recurso inexistente → `404`; `InvalidOperationException` → `422`; conflito de unicidade de login → `409`; falha de autenticação → `401`. Respostas de erro são `ProblemDetails` (RFC 7807) com `detail`; a validação de forma do cadastro responde `ValidationProblemDetails` com `errors` por campo.
 4. **Estado persistido com concorrência controlada**: os serviços são `Scoped` e recebem `AppDbContext`; concorrência é `DbContext` por requisição + transação. O `lock` de `CarteiraSimulada` serializa as mutações internas do objeto, não requisições concorrentes (`docs/arch.md` §9, item 3).
 5. **CORS restrito** a `http://localhost:5173` e `http://localhost:3000`; Swagger UI só em `Development`.
 6. **Sem autenticação/autorização de transporte**: não há `AddAuthentication`, não há `[Authorize]` em nenhum controller, e `app.UseAuthorization()` opera sem esquema configurado. Qualquer cliente alcança qualquer `id`.
 
-## 12. Cobertura de testes (66 casos, 60 métodos)
+## 12. Cobertura de testes (89 casos, 83 métodos)
 
-Números medidos com `dotnet test tests/Portfy.Tests` na base `34f2657`. A coluna **Métodos** conta `[Fact]` + `[Theory]`; **Casos** conta cada `[InlineData]` como caso próprio, e é esse total que o `dotnet test` reporta.
+Números medidos com `dotnet test tests/Portfy.Tests` na árvore atual (2026-11-01). A coluna **Métodos** conta `[Fact]` + `[Theory]`; **Casos** conta cada `[InlineData]` como caso próprio, e é esse total que o `dotnet test` reporta.
 
 | Área | Métodos | Casos | O que garantem |
 |---|---|---|---|
 | `CarteiraSimulada` | 11 | 12 | saldo inicial, compra sem saldo, preço médio ponderado, venda sem posição, remoção ao zerar, aporte somando ao saldo, patrimônio |
 | `Posicao` | 5 | 7 | construtor, redução acima do disponível |
-| `Usuario` | 11 | 11 | senha não armazenada em texto puro, hash verificável, conta nasce não verificada, troca de senha, salário |
+| `Usuario` | 9 | 9 | hash armazenado sem senha em texto puro, conta nasce não verificada, troca de hash, salário |
 | `Orcamento` | 6 | 7 | limite, percentual, acúmulo de gasto, estouro, saldo negativo |
 | `Ativo` | 7 | 9 | ticker/preço válidos, normalização de ticker, rentabilidade, polimorfismo de `Acao`/`FII`/`Cripto` |
 | `AtivoService` | 5 | 5 | variação pelo percentual sorteado, percentual customizado, ticker inexistente, catálogo |
-| `UsuarioService` | 7 | 7 | login duplicado sem caixa, autenticação, exclusão, atualização |
+| `UsuarioService` | 10 | 10 | login duplicado sem caixa, autenticação, hash BCrypt no cadastro, troca de senha com senha atual, exclusão, atualização |
 | `CarteiraController` | 3 | 3 | resposta montada a partir do serviço injetado, serviço nulo, saldo padrão |
-| `Persistencia` (`Data/`) | 5 | 5 | usuário sobrevive à troca de contexto, seed não duplica nem sobrescreve preço, precisão de `decimal` na ida e volta, posições recarregadas, aporte exige usuário existente e recebe `Id` do banco |
+| `Persistencia` (`Data/`) | 6 | 6 | usuário sobrevive à troca de contexto, seed não duplica nem sobrescreve preço, precisão de `decimal` na ida e volta, posições recarregadas, aporte exige usuário existente e recebe `Id` do banco, hash legado migra para BCrypt |
+| `SenhaHasher` | 6 | 6 | BCrypt verificável, salt por hash, senha vazia recusada, hash legado PBKDF2 aceito, hash malformado recusado sem exceção, `PrecisaAtualizar` |
+| Validadores de DTO (`Dtos/`) | 11 | 11 | cadastro (nome/login/senha/salário) e alteração de senha (tamanho e senha diferente da atual) |
+| `ExceptionHandlingMiddleware` | 4 | 4 | `ArgumentException` → `400`, `InvalidOperationException` → `422`, `KeyNotFoundException` → `404`, desconhecida → `500` sem vazar detalhe |
 
-Sem teste hoje: `Etf` e `RendaFixa` (rendimento), o domínio `AporteSimulado`, `AporteController`, `OrcamentoController`, `UsuarioController`, `GeradorDeVariacaoAleatoria`, `RelatorioFinanceiro` e todo o SPA. `AporteService` tem cobertura indireta em `PersistenciaTests`.
+Sem teste hoje: `Etf` e `RendaFixa` (rendimento), o domínio `AporteSimulado`, `AporteController`, `OrcamentoController`, `UsuarioController` (validado por smoke HTTP), `GeradorDeVariacaoAleatoria`, `RelatorioFinanceiro` e todo o SPA. `AporteService` tem cobertura indireta em `PersistenciaTests`.
 
 ## 13. Funcionalidades ausentes (não existem no código)
 

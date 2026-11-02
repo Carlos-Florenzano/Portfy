@@ -1,5 +1,9 @@
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Portfy.Data;
+using Portfy.Dtos.Usuario;
+using Portfy.Filters;
+using Portfy.Middleware;
 using Portfy.Services;
 using Portfy.Services.Contracts;
 
@@ -27,13 +31,19 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Com o Frontend: É essa instrução que permite que o backend escute
 // e entenda as requisições HTTP (GET, POST, PUT, DELETE) enviadas pela aplicação React (usando fetch ou axios)
 // e devolva as respostas em formato JSON.
-builder.Services.AddControllers();
+// O filtro registrado aqui executa os validadores FluentValidation de cada DTO
+// antes da action e devolve 400 em ProblemDetails (arch §14.1).
+builder.Services.AddControllers(options => options.Filters.Add<FluentValidationFilter>());
+
+// Um validador por DTO, descobertos por assembly: sem registro manual por tipo.
+builder.Services.AddValidatorsFromAssemblyContaining<CadastroRequestValidator>();
 
 // Injeção de dependência: cada controller depende de uma interface do namespace
 // Portfy.Services.Contracts, nunca de uma instância concreta. Todo serviço que usa
-// o AppDbContext é Scoped, acompanhando o ciclo de vida da requisição; apenas o
-// gerador de variação, que é sem estado e não toca no banco, permanece Singleton.
+// o AppDbContext é Scoped, acompanhando o ciclo de vida da requisição; o gerador
+// de variação e o hasher de senha, sem estado e sem banco, são Singleton.
 builder.Services.AddSingleton<IGeradorDeVariacao, GeradorDeVariacaoAleatoria>();
+builder.Services.AddSingleton<ISenhaHasher, SenhaHasher>();
 builder.Services.AddScoped<IAtivoService, AtivoService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<ICarteiraService, CarteiraService>();
@@ -83,6 +93,10 @@ if (app.Environment.IsDevelopment())
 
 // Ativa o middleware de CORS com a política definida acima
 app.UseCors("AllowReactApp");
+
+// Política única de erro (arch §14.2): exceção de qualquer action vira
+// ProblemDetails, então nenhuma action precisa de try/catch.
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseAuthorization();
 app.MapControllers();
