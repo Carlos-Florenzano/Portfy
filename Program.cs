@@ -12,6 +12,7 @@ using Portfy.Filters;
 using Portfy.Middleware;
 using Portfy.Services;
 using Portfy.Services.Contracts;
+using Portfy.Services.Integracoes;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -124,6 +125,16 @@ builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<ICarteiraService, CarteiraService>();
 builder.Services.AddScoped<IOrcamentoService, OrcamentoService>();
 builder.Services.AddScoped<IAporteService, AporteService>();
+
+// Fontes de dados de mercado (ADR-020): BRAPI para a B3, FMP para ativos
+// globais e fundamentos, Banco Central (SGS) para macroeconomia. As credenciais
+// não ficam no repositório: vêm de Integracoes__TokenBrapi e Integracoes__ChaveFmp.
+builder.Services.AdicionarIntegracoesDeMercado(builder.Configuration);
+
+// As credenciais dessas APIs viajam na query string. O handler padrão do
+// HttpClient registra a URL completa em nível Information, então o filtro
+// rebaixa esse log: token não pode aparecer em log (arch §15).
+builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
 
 // builder.Services.AddEndpointsApiExplorer():
 // No Backend: Analisa todo o código do seu projeto e vasculha quais rotas,

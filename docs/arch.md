@@ -66,6 +66,8 @@ Regra: se uma alteração contraria `notas/importante/sugestoes_mvp_portfy_temp_
 
 Cotação em tempo real por API externa, câmbio automático, histórico de preços, autenticação social/2FA, notificações, deploy e CI. Só entram com funcionalidade escrita em `notas/importante/sugestoes_mvp_portfy_temp_outubro_2026.md`.
 
+**Atualização de 2026-11-01 (ADR-020):** a integração de fontes externas de dados de mercado — FMP (global/fundamentos), BRAPI (B3) e Banco Central/SGS (macroeconomia) — foi autorizada pelo dono do produto em `notas/prompts/2026-11-01-prompt_api_financas_Lucas-gomes-01.md`. Continuam fora: histórico de preços persistido, câmbio automático e o consumo desses dados pelas telas do SPA.
+
 ---
 
 ## 3. Conformidade com a avaliação AV1
@@ -125,7 +127,7 @@ Medido em **2026-10-30** (fechamento da AV1) e **remedido em 2026-11-01**, após
 | Migrations EF | `ls Data/Migrations` | **PASSA** — `20261101003441_InitialCreate` + `AppDbContextModelSnapshot` (2026-11-01) |
 | Configuração EF por entidade | `ls Data/Configurations` | **PASSA** — 7 `IEntityTypeConfiguration` (2026-11-01) |
 | Seed de ativos | `ls Data/Seed` | **PASSA** — `SeedInicial.cs`, idempotente (2026-11-01) |
-| Projeto de testes | `dotnet test tests/Portfy.Tests` | **PASSA** — 89 testes, 0 falhas (2026-11-01) |
+| Projeto de testes | `dotnet test tests/Portfy.Tests` | **PASSA** — 140 testes, 0 falhas (2026-11-01, após a integração de mercado) |
 | `AppDbContext` em uso | busca por `AppDbContext` em `*.cs` | **PASSA** — consumido pelos 5 serviços `Scoped`; nenhum controller o referencia (2026-11-01) |
 | `*.db` fora do git | `grep db .gitignore` | **PASSA** — `*.db`, `*.db-shm`, `*.db-wal` (linhas 12-14) |
 | Autenticação | busca por `AddAuthentication` / `[Authorize]` | **inexistente** |
@@ -304,7 +306,8 @@ Portfy/
 │   ├── Usuario/{CadastroRequest,LoginRequest,UsuarioResponse}.cs
 │   ├── Ativo/
 │   ├── Carteira/
-│   └── Orcamento/
+│   ├── Orcamento/
+│   └── Mercado/                   # cotação, fundamentos e indicadores (ADR-020)
 ├── Services/                      # regras de aplicação
 │   ├── UsuarioService.cs
 │   ├── CarteiraService.cs
@@ -313,7 +316,8 @@ Portfy/
 │   ├── IndicadorService.cs
 │   ├── RelatorioFinanceiroService.cs
 │   ├── SenhaHasher.cs
-│   └── Contracts/                 # interfaces injetadas (ICarteiraService, IClock, ...)
+│   ├── Contracts/                 # interfaces injetadas (ICarteiraService, IClock, ...)
+│   └── Integracoes/               # fontes externas de mercado (ADR-020)
 ├── Models/                        # domínio + entidades persistidas
 │   ├── Usuario.cs
 │   ├── CarteiraSimulada.cs
@@ -641,18 +645,20 @@ Todas devem retornar **vazio** (ou o valor indicado). São baratas e executávei
 | Regra | Comando | Esperado | Resultado em 2026-11-01 |
 |---|---|---|---|
 | Sem setter público em modelos | `grep -rn "get; set;" Models` | vazio | ✅ vazio |
-| Sem estado estático de domínio | `grep -rn "private static" Controllers Services` | vazio | ✅ vazio |
+| Sem **campo** estático mutável | `grep -rnP --include="*.cs" 'private static (?!readonly)[A-Za-z_<>,]+ _[[:alnum:]_]+[[:space:]]*[=;]' Controllers Services` | vazio | ✅ vazio (2026-11-01) |
 | Sem `Console` em `Services` | `grep -rn "Console\." Services` | vazio | ❌ `RelatorioFinanceiro.cs` (P2-a) |
 | Sem `alert` no frontend | `grep -rn "alert(" frontend/src` | vazio | ✅ vazio |
 | Sem `any` explícito | `cd frontend && npm run lint` | 0 erros | ✅ 0 erros |
 | Sem **chamada** a `EnsureCreated` | `grep -rn "\.EnsureCreated(" --include="*.cs" .` | vazio | ✅ vazio (há 2 menções em comentário, em `Program.cs:70` e `AppDbContextEmMemoria.cs:15`) |
 | Sem `DateTime.Now` | `grep -rn "DateTime.Now" --include="*.cs" Models Services Controllers Data` | vazio | ❌ 3 ocorrências em `Models/` (P2-d) |
 | Build | `dotnet build Portfy.csproj` | 0 erros | ✅ 0 erros, 0 warnings |
-| Testes | `dotnet test tests/Portfy.Tests` | 0 falhas | ✅ 89/89 |
+| Testes | `dotnet test tests/Portfy.Tests` | 0 falhas | ✅ 140/140 |
 
 Comando com `--include=*.cs` **sem aspas** falha silenciosamente no zsh (o shell tenta expandir o padrão): o gate devolve saída vazia e parece passar. Sempre citar o padrão.
 
 O esperado não muda quando o resultado está vermelho: gate que falha é dívida registrada em §20, não motivo para afrouxar a regra.
+
+**Refinamento de 2026-11-01 (ADR-020):** o gate de estado estático usava `grep "private static"`, que acusava também *métodos* puros e tabelas `static readonly` imutáveis — nenhum deles é o estado que §9.1 proíbe. A regra passou a mirar só o campo estático mutável (nome no padrão `_camelCase`, sem `readonly`), que é a violação real. O comando novo foi verificado nos dois sentidos: vazio no repositório e vermelho para um `private static int _contador = 0;` sintético. O comando depende da convenção de nome `_camelCase` para campo privado (arch §16.1, item 8).
 
 ### 18.3 Regras de gate
 
@@ -687,6 +693,7 @@ O esperado não muda quando o resultado está vermelho: gate que falha é dívid
 | ADR-017 | Preview "e se?" não persiste nada | endpoint de simulação não escreve no banco |
 | ADR-018 | Hash de senha em BCrypt (fator 12) via `ISenhaHasher`, com ponte de verificação para hashes PBKDF2 existentes | substitui a exigência de PBKDF2 ≥ 210k (§15, item 3); usuários antigos não ficam bloqueados |
 | ADR-019 | Validação de forma em FluentValidation aplicada por um filtro global, não por `DataAnnotations` nem por `if` no controller | uma regra de payload por DTO, em um único ponto de execução |
+| ADR-020 | Dados de mercado vêm de três fontes complementares com contrato padronizado: **BRAPI** para B3/FII/cripto, **FMP** para ativos globais e fundamentos, **BCB/SGS** para macroeconomia. O consumidor usa `IMercadoService` e nunca conhece o provedor | ordem de preferência por tipo de ticker; fallback para a fonte secundária; cache em memória; disjuntor por fonte; `503` quando nenhuma fonte responde; credenciais só por ambiente (`Integracoes__TokenBrapi`, `Integracoes__ChaveFmp`); sem pacote novo (HttpClient e MemoryCache do framework) |
 
 ---
 
@@ -727,6 +734,7 @@ O esperado não muda quando o resultado está vermelho: gate que falha é dívid
 | P2-e | Sem `.env.example` / `VITE_API_BASE_URL` | base URL por ambiente, sem literal |
 | P2-f | Rotas PascalCase (`api/Usuario`) | rotas em minúsculas/plural |
 | P2-g | Comentários didáticos extensos nos controllers | comentário só para "por quê"/armadilha |
+| P2-h | Endpoints `api/mercado` são públicos e consomem cota de plano gratuito | limite por IP (além do cache) antes de expor a API em produção |
 
 ---
 

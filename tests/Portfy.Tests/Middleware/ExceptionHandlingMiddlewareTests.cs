@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Portfy.Middleware;
+using Portfy.Services.Contracts;
 
 namespace Portfy.Tests.Middleware;
 
@@ -61,5 +62,15 @@ public class ExceptionHandlingMiddlewareTests
 
         Assert.Equal(StatusCodes.Status500InternalServerError, resultado.Status);
         Assert.DoesNotContain("detalhe interno sensível", resultado.Corpo);
+    }
+
+    [Fact]
+    public async Task ServicoExternoIndisponivel_Vira503()
+    {
+        var resultado = await ExecutarAsync(
+            new ServicoExternoIndisponivelException("O provedor externo não respondeu a tempo."));
+
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, resultado.Status);
+        Assert.Contains("não respondeu a tempo", resultado.Corpo);
     }
 }

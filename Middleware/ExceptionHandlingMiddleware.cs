@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Portfy.Services.Contracts;
 
 namespace Portfy.Middleware;
 
@@ -90,6 +91,9 @@ public sealed class ExceptionHandlingMiddleware
                 (StatusCodes.Status400BadRequest, "Requisição inválida.", argumento.Message),
             KeyNotFoundException =>
                 (StatusCodes.Status404NotFound, "Recurso não encontrado.", "O recurso solicitado não existe."),
+            // Fonte externa fora do ar é 503, não 404: o dado pode existir, o acesso é que falhou.
+            ServicoExternoIndisponivelException indisponivel =>
+                (StatusCodes.Status503ServiceUnavailable, "Serviço externo indisponível.", indisponivel.Message),
             InvalidOperationException operacao =>
                 (StatusCodes.Status422UnprocessableEntity, "Regra de negócio violada.", operacao.Message),
             DbUpdateException atualizacao when ViolacaoDeUnicidade(atualizacao) =>

@@ -14,9 +14,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
+        // Pooling=False: o pool do Microsoft.Data.Sqlite mantém o arquivo aberto
+        // depois do Dispose e, no Windows, o File.Delete do _caminhoBanco falharia
+        // com "being used by another process". Sem pool, cada conexão fecha de fato.
         builder.UseSetting(
             "ConnectionStrings:DefaultConnection",
-            $"Data Source={_caminhoBanco}");
+            $"Data Source={_caminhoBanco};Pooling=False");
 
         // Emissor/audiência/chave de teste: a chave real nunca vive no repositório.
         builder.UseSetting("Auth:Jwt:Chave", new string('t', 64));
