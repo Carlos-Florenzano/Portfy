@@ -20,7 +20,9 @@ public class ProvedorBrapiTests
               "regularMarketPrice": 52.71,
               "regularMarketChange": 0.51,
               "regularMarketChangePercent": 0.98,
-              "regularMarketTime": "2026-11-01T22:15:46.000Z"
+              "regularMarketTime": "2026-11-01T22:15:46.000Z",
+              "priceEarnings": 5.0935902515389,
+              "earningsPerShare": 10.3482633
             }
           ],
           "requestedAt": "2026-11-02T01:55:37.047Z",
@@ -53,6 +55,23 @@ public class ProvedorBrapiTests
         Assert.Equal("BRL", cotacao.Moeda);
         Assert.Equal(new DateTimeOffset(2026, 11, 1, 22, 15, 46, TimeSpan.Zero), cotacao.AtualizadaEm);
         Assert.Equal("Brapi", cotacao.Fonte);
+    }
+
+    [Fact]
+    public async Task ObterFundamentos_MapeiaCoberturaParcialComOsMultiplosDaBrapi()
+    {
+        var manipulador = ManipuladorHttpFalso.ComRespostas((HttpStatusCode.OK, CorpoComCotacao));
+
+        FundamentoResponse? fundamento = await CriarProvedor(manipulador)
+            .ObterFundamentosAsync("PETR4", CancellationToken.None);
+
+        Assert.NotNull(fundamento);
+        Assert.Equal("Petroleo Brasileiro SA Pfd", fundamento!.Nome);
+        Assert.Equal("BRL", fundamento.Moeda);
+        Assert.Equal(5.0935902515389m, fundamento.PrecoLucro);
+        Assert.Equal(10.3482633m, fundamento.LucroPorAcao);
+        Assert.Equal(CoberturaDeDados.Parcial, fundamento.Cobertura);
+        Assert.Equal("Brapi", fundamento.Fonte);
     }
 
     [Fact]

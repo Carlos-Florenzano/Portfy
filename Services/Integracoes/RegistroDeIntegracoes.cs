@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Portfy.Services.Contracts;
 
@@ -48,11 +49,31 @@ public static class RegistroDeIntegracoes
         servicos.AddTransient<IProvedorDeCotacoes>(provedor => provedor.GetRequiredService<ProvedorBrapi>());
         servicos.AddTransient<IProvedorDeCotacoes>(provedor => provedor.GetRequiredService<ProvedorFmp>());
         servicos.AddTransient<IProvedorDeFundamentos>(provedor => provedor.GetRequiredService<ProvedorFmp>());
+        servicos.AddTransient<IProvedorDeFundamentos>(provedor => provedor.GetRequiredService<ProvedorBrapi>());
         servicos.AddTransient<IProvedorDeIndicadores>(provedor => provedor.GetRequiredService<ProvedorBcb>());
 
         servicos.AddScoped<IMercadoService, MercadoService>();
 
         return servicos;
+    }
+
+    /// Diagnóstico de operação: registra, sem nenhum segredo, quais fontes estão
+    /// sem credencial. Sem isso, a falta de chave só apareceria como 503 para o
+    /// usuário, na primeira requisição de mercado.
+    public static void AvisarFontesDeMercadoNaoConfiguradas(this IServiceProvider servicos)
+    {
+        ArgumentNullException.ThrowIfNull(servicos);
+
+        OpcoesDeIntegracao opcoes = servicos.GetRequiredService<IOptions<OpcoesDeIntegracao>>().Value;
+        ILogger logger = servicos.GetRequiredService<ILoggerFactory>().CreateLogger("Portfy.Integracoes");
+
+        if (string.IsNullOrWhiteSpace(opcoes.TokenBrapi))
+            logger.LogWarning(
+                "BRAPI sem token: cotação da B3 depende da FMP e, sem ela, responde 503. Defina Integracoes__TokenBrapi.");
+
+        if (string.IsNullOrWhiteSpace(opcoes.ChaveFmp))
+            logger.LogWarning(
+                "FMP sem chave: cotação global e fundamentos respondem 503 (ou cobertura parcial da BRAPI). Defina Integracoes__ChaveFmp.");
     }
 
     private static void ConfigurarCliente(HttpClient cliente, string url, int segundosDeTimeout)

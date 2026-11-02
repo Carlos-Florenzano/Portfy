@@ -124,6 +124,17 @@ public class MercadoServiceTests
     }
 
     [Fact]
+    public async Task ObterCotacao_FalhaDasDuasFontesViraIndisponibilidade()
+    {
+        var brapi = Brapi(falha: new ServicoExternoIndisponivelException("brapi fora"));
+        var fmp = Fmp(falha: new ServicoExternoIndisponivelException("fmp fora"));
+        MercadoService servico = Cenario.Servico(new IProvedorDeCotacoes[] { brapi, fmp });
+
+        await Assert.ThrowsAsync<ServicoExternoIndisponivelException>(
+            () => servico.ObterCotacaoAsync("PETR4", CancellationToken.None));
+    }
+
+    [Fact]
     public async Task ObterCotacao_TickerEmBrancoViraRequisicaoInvalida()
     {
         MercadoService servico = Cenario.Servico(new IProvedorDeCotacoes[] { Brapi(), Fmp() });
@@ -160,11 +171,15 @@ public class MercadoServiceTests
     }
 
     [Fact]
-    public async Task ObterFundamentos_SemChaveDaFmpViraIndisponibilidade()
+    public async Task ObterFundamentos_SemNenhumaFonteConfiguradaViraIndisponibilidade()
     {
         MercadoService servico = Cenario.Servico(
             new IProvedorDeCotacoes[] { Brapi(), Fmp() },
-            fundamentos: new ProvedorDeFundamentosFalso(configurado: false));
+            fundamentos: new IProvedorDeFundamentos[]
+            {
+                new ProvedorDeFundamentosFalso(configurado: false),
+                new ProvedorDeFundamentosFalso(configurado: false, origem: OrigemDeMercado.Brapi),
+            });
 
         await Assert.ThrowsAsync<ServicoExternoIndisponivelException>(
             () => servico.ObterFundamentosAsync("AAPL", CancellationToken.None));
@@ -178,16 +193,18 @@ public class MercadoServiceTests
             Ticker = "AAPL",
             Nome = "Apple Inc.",
             Setor = "Technology",
+            Cobertura = CoberturaDeDados.Completa,
             Fonte = OrigemDeMercado.Fmp.ToString(),
         });
         MercadoService servico = Cenario.Servico(
             new IProvedorDeCotacoes[] { Brapi(), Fmp() },
-            fundamentos: fundamentos);
+            fundamentos: new IProvedorDeFundamentos[] { fundamentos });
 
         FundamentoResponse resposta = await servico.ObterFundamentosAsync("AAPL", CancellationToken.None);
 
         Assert.Equal("Technology", resposta.Setor);
         Assert.Equal("Fmp", resposta.Fonte);
+        Assert.Equal(CoberturaDeDados.Completa, resposta.Cobertura);
     }
 
     [Fact]
@@ -235,5 +252,98 @@ public class MercadoServiceTests
         relogio.Avancar(TimeSpan.FromSeconds(61));
 
         Assert.True(disjuntor.EstaDisponivel(OrigemDeMercado.Brapi));
+    }
+
+    [Fact]
+    public async Task ObterFundamentos_UsaABrapiParcialQuandoAFmpFalha()
+    {
+        var fmp = new ProvedorDeFundamentosFalso(
+            falha: new ServicoExternoIndisponivelException("sem chave"));
+        var brapi = new ProvedorDeFundamentosFalso(
+            _ => new FundamentoResponse
+            {
+                Ticker = "PETR4",
+                Nome = "Petroleo Brasileiro SA Pfd",
+                PrecoLucro = 5.09m,
+                Cobertura = CoberturaDeDados.Parcial,
+                Fonte = OrigemDeMercado.Brapi.ToString(),
+            },
+            origem: OrigemDeMercado.Brapi);
+        MercadoService servico = Cenario.Servico(
+            new IProvedorDeCotacoes[] { Brapi(), Fmp() },
+            fundamentos: new IProvedorDeFundamentos[] { fmp, brapi });
+
+        FundamentoResponse resposta = await servico.ObterFundamentosAsync("PETR4", CancellationToken.None);
+
+        Assert.Equal("Brapi", resposta.Fonte);
+        Assert.Equal(CoberturaDeDados.Parcial, resposta.Cobertura);
+        Assert.Equal(5.09m, resposta.PrecoLucro);
+    }
+
+    [Fact]
+    public async Task ObterFundamentos_UsaABrapiQuandoAFmpNaoCobreOTicker()
+    {
+        var fmp = new ProvedorDeFundamentosFalso();
+        var brapi = new ProvedorDeFundamentosFalso(
+            _ => new FundamentoResponse { Ticker = "HGLG11", Cobertura = CoberturaDeDados.Parcial },
+            origem: OrigemDeMercado.Brapi);
+        MercadoService servico = Cenario.Servico(
+            new IProvedorDeCotacoes[] { Brapi(), Fmp() },
+            fundamentos: new IProvedorDeFundamentos[] { fmp, brapi });
+
+        FundamentoResponse resposta = await servico.ObterFundamentosAsync("HGLG11", CancellationToken.None);
+
+        Assert.Equal(CoberturaDeDados.Parcial, resposta.Cobertura);
+        Assert.Equal(1, fmp.Chamadas);
+    }
+
+    [Fact]
+    public async Task ObterFundamentos_PrefereAFmpComCoberturaCompleta()
+    {
+        var fmp = new ProvedorDeFundamentosFalso(
+            _ => new FundamentoResponse { Setor = "Technology", Cobertura = CoberturaDeDados.Completa });
+        var brapi = new ProvedorDeFundamentosFalso(
+            _ => new FundamentoResponse { Cobertura = CoberturaDeDados.Parcial },
+            origem: OrigemDeMercado.Brapi);
+        MercadoService servico = Cenario.Servico(
+            new IProvedorDeCotacoes[] { Brapi(), Fmp() },
+            fundamentos: new IProvedorDeFundamentos[] { brapi, fmp });
+
+        FundamentoResponse resposta = await servico.ObterFundamentosAsync("AAPL", CancellationToken.None);
+
+        Assert.Equal(CoberturaDeDados.Completa, resposta.Cobertura);
+        Assert.Equal(0, brapi.Chamadas);
+    }
+
+    [Fact]
+    public async Task ObterFundamentos_TickerInexistenteEmTodasAsFontesVira404()
+    {
+        MercadoService servico = Cenario.Servico(
+            new IProvedorDeCotacoes[] { Brapi(), Fmp() },
+            fundamentos: new IProvedorDeFundamentos[]
+            {
+                new ProvedorDeFundamentosFalso(),
+                new ProvedorDeFundamentosFalso(origem: OrigemDeMercado.Brapi),
+            });
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => servico.ObterFundamentosAsync("XPTO9", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ObterFundamentos_FalhaDasDuasFontesViraIndisponibilidade()
+    {
+        MercadoService servico = Cenario.Servico(
+            new IProvedorDeCotacoes[] { Brapi(), Fmp() },
+            fundamentos: new IProvedorDeFundamentos[]
+            {
+                new ProvedorDeFundamentosFalso(falha: new ServicoExternoIndisponivelException("fmp fora")),
+                new ProvedorDeFundamentosFalso(
+                    falha: new ServicoExternoIndisponivelException("brapi fora"),
+                    origem: OrigemDeMercado.Brapi),
+            });
+
+        await Assert.ThrowsAsync<ServicoExternoIndisponivelException>(
+            () => servico.ObterFundamentosAsync("PETR4", CancellationToken.None));
     }
 }

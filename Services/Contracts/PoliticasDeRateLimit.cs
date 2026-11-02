@@ -5,4 +5,8 @@ namespace Portfy.Services.Contracts;
 public static class PoliticasDeRateLimit
 {
     public const string Login = "login";
+
+    /// Consultas de mercado: o cache interno já reduz a ida às fontes externas, e
+    /// o limite por IP protege a cota do plano gratuito de quem consome a API.
+    public const string Mercado = "mercado";
 }

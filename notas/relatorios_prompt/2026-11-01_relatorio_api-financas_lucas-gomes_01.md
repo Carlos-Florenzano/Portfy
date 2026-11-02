@@ -245,18 +245,28 @@ declarada como regressão da integração.
 
 ## 7. Pendências e limitações
 
+Status após a rodada de resolução (2026-11-01, 23:44–23:52):
+
 | # | Item | Situação |
 |---|---|---|
-| 1 | `Integracoes__TokenBrapi` e `Integracoes__ChaveFmp` precisam ser definidas no ambiente | sem elas, cotação e fundamentos respondem `503` (por desenho) |
-| 2 | Endpoints `api/mercado` são públicos | consomem cota de terceiro; limite por IP registrado como P2-h em `docs/arch.md` §20 |
-| 3 | Fundamentos não têm fallback | a BRAPI não cobre fundamentos profundos; `503`/`404` é a resposta honesta |
-| 4 | Nomes de campo da FMP não puderam ser verificados com chave real | o adaptador lê por aliases (`price`/`regularMarketPrice`, `changesPercentage`/`changePercentage`, `pe`/`peRatio`, `eps`/`epsTtm`) e trata objeto de erro como fonte indisponível; `ProvedorFmpTests` cobre os dois formatos |
-| 5 | Contador local de cota diária da FMP | não implementado; cache + disjuntor + 429→fallback cobrem o caso (P2-h) |
-| 6 | SPA não consome os endpoints novos | nenhum tipo espelho em `frontend/src/types` foi criado (não há tela consumindo); o espelho entra junto da tela, como manda o arch §10.7 |
-| 7 | `appsettings` e o roadmap do projeto | não alterados: são protegidos pelo boundary do agente nesta execução |
+| 1 | Credenciais de BRAPI e FMP | **mitigado**: o startup agora registra `warning` dizendo qual chave falta (sem vazar valor) e o `503` nomeia a chave; a definição continua sendo do dono do ambiente — passo a passo em `docs/integracoes-mercado.md` §2 |
+| 2 | Rate limit em `api/mercado` | ✅ **resolvido**: política `mercado` de 60 consultas/minuto por IP com `429` + `Retry-After` (P2-h fechada no §20) |
+| 3 | Fundamentos sem fallback | ✅ **resolvido**: a BRAPI entra como fallback declarando `cobertura: Parcial` (P/L e LPA); a FMP continua preferida com `Completa` |
+| 4 | Nomes de campo da FMP | **mitigado**: aliases das duas gerações + testes dos dois formatos; confirmação final exige uma chave real |
+| 5 | Contador local de cota diária da FMP | **não implementado (aceito)**: `429` → disjuntor → fallback; a dívida P2-h original (rate limit) foi resolvida |
+| 6 | Espelho no SPA | ✅ **resolvido**: `types/mercado.ts`, `services/mercadoService.ts` e painel "Mercado hoje" no Dashboard consumindo `api/mercado/indicadores` |
+| 7 | Arquivo de configuração e roadmap | **permanece**: protegidos nesta execução; a seção `Integracoes` e o procedimento estão em `docs/integracoes-mercado.md` §2.2 |
 
-### 7.1 Recomendação de próximo passo
+### 7.1 O que ficou pendente por dependência externa
 
-Usar `GET api/mercado/indicadores` no card de saúde financeira do Dashboard e
-`GET api/mercado/cotacoes/{ticker}` no componente de ativos, espelhando os DTOs em
-`frontend/src/types/` no mesmo commit da tela.
+1. Chaves reais de BRAPI e FMP: sem elas, cotação e fundamentos respondem `503` (por desenho) e
+   os nomes de campo da FMP seguem só cobertos por aliases e testes.
+2. Seção `Integracoes` no arquivo de configuração: os defaults já estão no código; copiar de
+   `docs/integracoes-mercado.md` §2.2 quando quiser os valores visíveis no arquivo.
+
+### 7.2 Consumo no SPA (entregue)
+
+O painel **Mercado hoje** do Dashboard mostra IPCA, Selic, CDI e dólar vindos de
+`GET api/mercado/indicadores`, com os três estados exigidos (carregando / erro / vazio), botão
+"Atualizar" e aviso quando alguma série não foi publicada. Nenhum componente importa `axios`:
+o acesso passa por `services/mercadoService.ts`.

@@ -70,8 +70,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
-// Rate limiting do login (P1-g): 10 tentativas por minuto por IP; a 11ª recebe
-// 429 com Retry-After, o que torna brute-force caro sem bloquear o cadastro.
+// Rate limiting por IP: 10 tentativas de login por minuto (P1-g) e 60 consultas
+// de mercado por minuto (P2-h). O excedente recebe 429 com Retry-After.
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -82,6 +82,18 @@ builder.Services.AddRateLimiter(options =>
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+    // Rotas de mercado são públicas e cada falha de cache vira chamada a um
+    // provedor com cota limitada; o limite por IP protege essa cota.
+    options.AddPolicy(PoliticasDeRateLimit.Mercado, contexto =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            contexto.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
             }));
@@ -97,8 +109,8 @@ builder.Services.AddRateLimiter(options =>
         var problema = new ProblemDetails
         {
             Status = StatusCodes.Status429TooManyRequests,
-            Title = "Muitas tentativas.",
-            Detail = "Limite de tentativas de login excedido. Tente novamente em instantes.",
+            Title = "Muitas requisições.",
+            Detail = "Limite de requisições excedido. Tente novamente em instantes.",
             Instance = contexto.HttpContext.Request.Path,
         };
 
@@ -169,6 +181,11 @@ using (var scope = app.Services.CreateScope())
 {
     scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
 }
+
+// Diagnóstico de operação: diz no log, sem vazar segredo, qual fonte ficou sem
+// credencial. Sem essa linha, a falta de chave só apareceria como 503 na primeira
+// requisição de um usuário.
+app.Services.AvisarFontesDeMercadoNaoConfiguradas();
 
 // Executa a interface visual do Swagger apenas em ambiente de desenvolvimento
 if (app.Environment.IsDevelopment())

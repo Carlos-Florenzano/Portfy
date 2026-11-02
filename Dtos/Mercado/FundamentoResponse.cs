@@ -26,5 +26,8 @@ public sealed class FundamentoResponse
 
     public decimal? Beta { get; init; }
 
+    /// Diz se a fonte entregou o contrato completo ou apenas parte dele.
+    public CoberturaDeDados Cobertura { get; init; }
+
     public string Fonte { get; init; } = string.Empty;
 }

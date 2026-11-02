@@ -262,13 +262,79 @@ foi introduzido.
 
 ---
 
-## 10. Pendências abertas
+## 10. Pendências e status (atualizado em 23:52)
 
-| # | Item | Encaminhamento |
+| # | Item | Situação |
 |---|---|---|
-| 1 | Definir `Integracoes__TokenBrapi` e `Integracoes__ChaveFmp` no ambiente de quem for rodar | variáveis de ambiente ou `dotnet user-secrets` |
-| 2 | Rate limit por IP nas rotas públicas `api/mercado` | dívida P2-h registrada em `docs/arch.md` §20 |
-| 3 | Fundamentos sem fonte alternativa | limitação conhecida: a BRAPI não cobre fundamentos profundos |
-| 4 | Nomes de campo da FMP não confirmados com chave real | aliases + testes cobrindo os dois formatos; confirmar quando houver chave |
-| 5 | Espelho dos DTOs no SPA | só quando existir tela consumindo (`arch.md` §10.7) |
-| 6 | Seção `Integracoes` no arquivo de configuração | adicionar manualmente se quiser os valores visíveis; os defaults já estão no código |
+| 1 | Definir `Integracoes__TokenBrapi` e `Integracoes__ChaveFmp` | **depende do dono do ambiente**: startup agora avisa qual chave falta e o `503` nomeia a chave; ver §11.2 |
+| 2 | Rate limit por IP em `api/mercado` | ✅ resolvido em §11.1 (60/min por IP, `429` + `Retry-After`) |
+| 3 | Fundamentos sem fonte alternativa | ✅ resolvido em §11.3 (BRAPI como fallback com `cobertura: Parcial`) |
+| 4 | Nomes de campo da FMP | **mitigado** (aliases + testes); confirmação final exige chave real |
+| 5 | Espelho dos DTOs no SPA | ✅ resolvido em §11.5 (tipos, service e painel "Mercado hoje") |
+| 6 | Seção `Integracoes` no arquivo de configuração | **permanece** (arquivo protegido); procedimento e snippet em `docs/integracoes-mercado.md` §2.2 |
+
+---
+
+## 11. Rodada de resolução das pendências (23:44 – 23:52)
+
+### 11.1 Rate limit das rotas públicas (P2-h)
+
+1. `Services/Contracts/PoliticasDeRateLimit.cs`: nova constante `Mercado = "mercado"`.
+2. `Program.cs`: política `mercado` (janela fixa de 1 minuto, 60 requisições por IP). A mensagem
+   de rejeição virou genérica ("Limite de requisições excedido"), porque antes ela falava só de
+   login e passou a ser usada por duas políticas.
+3. `Controllers/MercadoController.cs`: `[EnableRateLimiting(PoliticasDeRateLimit.Mercado)]`.
+4. Teste novo `MercadoApiTests.Mercado_AcimaDoLimitePorIpResponde429ComRetryAfter` (dublê de
+   `IMercadoService` via `ConfigureTestServices`, sem rede).
+
+### 11.2 Diagnóstico de credencial ausente
+
+`RegistroDeIntegracoes.AvisarFontesDeMercadoNaoConfiguradas()` chamado no startup: registra um
+`warning` por fonte sem credencial, sem imprimir valor. Smoke real produziu exatamente as duas
+linhas esperadas (BRAPI e FMP).
+
+### 11.3 Fallback de fundamentos com cobertura explícita
+
+1. `Dtos/Mercado/CoberturaDeDados.cs`: `Parcial` (primeiro membro, logo o padrão do enum) e
+   `Completa`; `FundamentoResponse.Cobertura` serializa como string.
+2. `ProvedorFmp`: `Completa`. `ProvedorBrapi`: passou a implementar `IProvedorDeFundamentos`
+   mapeando `priceEarnings`/`earningsPerShare` com `Parcial` (payload real confirmado em §2).
+3. `MercadoService`: fundamentos agora percorrem uma lista de fontes (FMP primeiro, BRAPI depois)
+   com o mesmo cache, disjuntor e desfecho 404 × 503 das cotações.
+
+### 11.4 Bug real encontrado pela rodada de testes
+
+O teste `ObterFundamentos_FalhaDasDuasFontesViraIndisponibilidade` reprovou: quando **todas** as
+fontes falhavam, a resposta era `404` (o helper devolvia `null`, indistinguível de "não existe").
+Correção na causa: os helpers de tentativa devolvem `(resultado, falhou)` e a falha marca
+`algumaFonteIndisponivel`. Teste de regressão equivalente foi adicionado para cotação.
+Resultado: **150/150**.
+
+### 11.5 Painel "Mercado hoje" no SPA
+
+`npm install` (dependências ausentes, 1m35s) → `frontend/src/types/mercado.ts`,
+`frontend/src/services/mercadoService.ts` e `frontend/src/components/IndicadoresDeMercado.tsx`,
+renderizado no `Dashboard.tsx`. Reutiliza as classes `.panel`/`.card` existentes (nenhum CSS novo).
+O primeiro `npm run lint` reprovou a regra `react-hooks/set-state-in-effect`; o componente foi
+refeito com carga dentro do efeito, guarda de desmontagem e gatilho de nova tentativa. Gates:
+`npm run build` (82 módulos) e `npm run lint` (0 problemas).
+
+### 11.6 Documentação
+
+Nova `docs/integracoes-mercado.md` (fontes, configuração, endpoints, status, cobertura,
+verificação e testes) e atualização de `docs/arch.md`: ADR-020 (fallback com cobertura + rate
+limit + ponteiro para a doc), P2-h fechada no §20 e contagem de testes em §4/§18.2.
+
+### 11.7 Gates finais e smoke
+
+```
+dotnet build Portfy.csproj  → 0 Aviso(s), 0 Erro(s)
+dotnet test tests/Portfy.Tests → 150/150
+npm run build / npm run lint → ok / 0 problemas
+grep get;set; Models = 0 · static mutável = 0 · EnsureCreated = 0 · any no SPA = 0
+```
+
+Smoke na API real (sem credenciais de mercado): `cotacoes/PETR4` → `503`,
+`fundamentos/AAPL` → `503`, `indicadores` → `200`; a 61ª consulta da janela respondeu
+`429` com `Retry-After: 60` (o laço acusou na 58ª tentativa após 3 requisições anteriores).
+Banco criado pelo smoke removido ao final.

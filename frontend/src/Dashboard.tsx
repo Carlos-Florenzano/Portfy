@@ -4,6 +4,7 @@ import { mensagemDeErro } from "./services/api";
 import { lerSessao, limparSessao } from "./services/sessao";
 import { usuarioService } from "./services/UsuarioService";
 import type { Usuario } from "./services/UsuarioService";
+import { IndicadoresDeMercado } from "./components/IndicadoresDeMercado";
 
 interface Aviso {
   tipo: "sucesso" | "erro";
@@ -270,6 +271,9 @@ function Dashboard() {
             <p className="card-description">Aguardando dados dos investimentos</p>
           </div>
         </section>
+
+        {/* INDICADORES OFICIAIS (API de mercado, ADR-020) */}
+        <IndicadoresDeMercado />
 
         {/* ÁREA INFERIOR */}
         <section className="dashboard-grid">

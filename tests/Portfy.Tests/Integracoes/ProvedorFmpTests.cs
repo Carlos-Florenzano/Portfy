@@ -100,6 +100,7 @@ public class ProvedorFmpTests
         Assert.Equal(25.4m, fundamento.PrecoLucro);
         Assert.Equal(6.1m, fundamento.LucroPorAcao);
         Assert.Equal(1.2m, fundamento.Beta);
+        Assert.Equal(CoberturaDeDados.Completa, fundamento.Cobertura);
         Assert.Equal("Fmp", fundamento.Fonte);
         Assert.Equal(2, manipulador.Requisicoes.Count);
     }

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Portfy.Services.Contracts;
 
 namespace Portfy.Controllers;
@@ -7,6 +8,7 @@ namespace Portfy.Controllers;
 // deste controller não conhece FMP, BRAPI nem SGS: recebe o contrato padronizado.
 [ApiController]
 [Route("api/mercado")]
+[EnableRateLimiting(PoliticasDeRateLimit.Mercado)]
 public class MercadoController : ControllerBase
 {
     private readonly IMercadoService _mercadoService;

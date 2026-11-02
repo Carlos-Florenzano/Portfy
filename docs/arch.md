@@ -127,7 +127,7 @@ Medido em **2026-10-30** (fechamento da AV1) e **remedido em 2026-11-01**, após
 | Migrations EF | `ls Data/Migrations` | **PASSA** — `20261101003441_InitialCreate` + `AppDbContextModelSnapshot` (2026-11-01) |
 | Configuração EF por entidade | `ls Data/Configurations` | **PASSA** — 7 `IEntityTypeConfiguration` (2026-11-01) |
 | Seed de ativos | `ls Data/Seed` | **PASSA** — `SeedInicial.cs`, idempotente (2026-11-01) |
-| Projeto de testes | `dotnet test tests/Portfy.Tests` | **PASSA** — 140 testes, 0 falhas (2026-11-01, após a integração de mercado) |
+| Projeto de testes | `dotnet test tests/Portfy.Tests` | **PASSA** — 150 testes, 0 falhas (2026-11-01, após a integração de mercado) |
 | `AppDbContext` em uso | busca por `AppDbContext` em `*.cs` | **PASSA** — consumido pelos 5 serviços `Scoped`; nenhum controller o referencia (2026-11-01) |
 | `*.db` fora do git | `grep db .gitignore` | **PASSA** — `*.db`, `*.db-shm`, `*.db-wal` (linhas 12-14) |
 | Autenticação | busca por `AddAuthentication` / `[Authorize]` | **inexistente** |
@@ -652,7 +652,7 @@ Todas devem retornar **vazio** (ou o valor indicado). São baratas e executávei
 | Sem **chamada** a `EnsureCreated` | `grep -rn "\.EnsureCreated(" --include="*.cs" .` | vazio | ✅ vazio (há 2 menções em comentário, em `Program.cs:70` e `AppDbContextEmMemoria.cs:15`) |
 | Sem `DateTime.Now` | `grep -rn "DateTime.Now" --include="*.cs" Models Services Controllers Data` | vazio | ❌ 3 ocorrências em `Models/` (P2-d) |
 | Build | `dotnet build Portfy.csproj` | 0 erros | ✅ 0 erros, 0 warnings |
-| Testes | `dotnet test tests/Portfy.Tests` | 0 falhas | ✅ 140/140 |
+| Testes | `dotnet test tests/Portfy.Tests` | 0 falhas | ✅ 150/150 |
 
 Comando com `--include=*.cs` **sem aspas** falha silenciosamente no zsh (o shell tenta expandir o padrão): o gate devolve saída vazia e parece passar. Sempre citar o padrão.
 
@@ -693,7 +693,7 @@ O esperado não muda quando o resultado está vermelho: gate que falha é dívid
 | ADR-017 | Preview "e se?" não persiste nada | endpoint de simulação não escreve no banco |
 | ADR-018 | Hash de senha em BCrypt (fator 12) via `ISenhaHasher`, com ponte de verificação para hashes PBKDF2 existentes | substitui a exigência de PBKDF2 ≥ 210k (§15, item 3); usuários antigos não ficam bloqueados |
 | ADR-019 | Validação de forma em FluentValidation aplicada por um filtro global, não por `DataAnnotations` nem por `if` no controller | uma regra de payload por DTO, em um único ponto de execução |
-| ADR-020 | Dados de mercado vêm de três fontes complementares com contrato padronizado: **BRAPI** para B3/FII/cripto, **FMP** para ativos globais e fundamentos, **BCB/SGS** para macroeconomia. O consumidor usa `IMercadoService` e nunca conhece o provedor | ordem de preferência por tipo de ticker; fallback para a fonte secundária; cache em memória; disjuntor por fonte; `503` quando nenhuma fonte responde; credenciais só por ambiente (`Integracoes__TokenBrapi`, `Integracoes__ChaveFmp`); sem pacote novo (HttpClient e MemoryCache do framework) |
+| ADR-020 | Dados de mercado vêm de três fontes complementares com contrato padronizado: **BRAPI** para B3/FII/cripto, **FMP** para ativos globais e fundamentos, **BCB/SGS** para macroeconomia. O consumidor usa `IMercadoService` e nunca conhece o provedor | ordem de preferência por tipo de ticker; fallback para a fonte secundária nas duas leituras — fundamentos declaram `cobertura: Completa` (FMP) ou `Parcial` (BRAPI), com `Parcial` como padrão do enum; cache em memória; disjuntor por fonte; `503` quando **nenhuma** fonte responde (falha não vira `404`); `429` acima de 60 consultas por minuto por IP; credenciais só por ambiente (`Integracoes__TokenBrapi`, `Integracoes__ChaveFmp`); sem pacote novo (HttpClient e MemoryCache do framework); operação documentada em `docs/integracoes-mercado.md` |
 
 ---
 
@@ -734,7 +734,7 @@ O esperado não muda quando o resultado está vermelho: gate que falha é dívid
 | P2-e | Sem `.env.example` / `VITE_API_BASE_URL` | base URL por ambiente, sem literal |
 | P2-f | Rotas PascalCase (`api/Usuario`) | rotas em minúsculas/plural |
 | P2-g | Comentários didáticos extensos nos controllers | comentário só para "por quê"/armadilha |
-| P2-h | Endpoints `api/mercado` são públicos e consomem cota de plano gratuito | limite por IP (além do cache) antes de expor a API em produção |
+| P2-h | ✅ resolvido em 2026-11-01 — `api/mercado` tem política própria de rate limit (**60 consultas por minuto por IP**, `429` com `Retry-After`), além do cache | `RateLimitPartition` da política `mercado` em `Program.cs` + `[EnableRateLimiting]` no controller |
 
 ---
 

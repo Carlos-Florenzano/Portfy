@@ -79,6 +79,7 @@ public sealed class ProvedorFmp : ProvedorHttpBase, IProvedorDeCotacoes, IProved
             PrecoLucro = ValorDaCotacao(cotacao, "pe", "peRatio", "peRatioTTM"),
             LucroPorAcao = ValorDaCotacao(cotacao, "eps", "epsTtm"),
             Beta = LeitorJson.Numero(perfil.Value, "beta"),
+            Cobertura = CoberturaDeDados.Completa,
             Fonte = Origem.ToString(),
         };
     }

@@ -112,14 +112,16 @@ internal sealed class ProvedorDeFundamentosFalso : IProvedorDeFundamentos
     public ProvedorDeFundamentosFalso(
         Func<string, FundamentoResponse?>? resposta = null,
         Exception? falha = null,
-        bool configurado = true)
+        bool configurado = true,
+        OrigemDeMercado origem = OrigemDeMercado.Fmp)
     {
         _resposta = resposta ?? (_ => null);
         _falha = falha;
         EstaConfigurado = configurado;
+        Origem = origem;
     }
 
-    public OrigemDeMercado Origem => OrigemDeMercado.Fmp;
+    public OrigemDeMercado Origem { get; }
 
     public bool EstaConfigurado { get; }
 
@@ -166,12 +168,12 @@ internal static class Cenario
 {
     internal static MercadoService Servico(
         IEnumerable<IProvedorDeCotacoes> cotacoes,
-        IProvedorDeFundamentos? fundamentos = null,
+        IEnumerable<IProvedorDeFundamentos>? fundamentos = null,
         IProvedorDeIndicadores? indicadores = null,
         DisjuntorDeProvedores? disjuntor = null,
         IMemoryCache? cache = null) =>
         new(cotacoes,
-            fundamentos ?? new ProvedorDeFundamentosFalso(),
+            fundamentos ?? new IProvedorDeFundamentos[] { new ProvedorDeFundamentosFalso() },
             indicadores ?? new ProvedorDeIndicadoresFalso(),
             cache ?? new MemoryCache(new MemoryCacheOptions()),
             disjuntor ?? new DisjuntorDeProvedores(new RelogioFalso(Instante)),

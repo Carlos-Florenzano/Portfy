@@ -19,7 +19,7 @@ public sealed class MercadoService : IMercadoService
         new("^[A-Z]{4}[0-9]{1,2}$", RegexOptions.CultureInvariant);
 
     private readonly IReadOnlyList<IProvedorDeCotacoes> _provedoresDeCotacao;
-    private readonly IProvedorDeFundamentos _provedorDeFundamentos;
+    private readonly IReadOnlyList<IProvedorDeFundamentos> _provedoresDeFundamentos;
     private readonly IProvedorDeIndicadores _provedorDeIndicadores;
     private readonly IMemoryCache _cache;
     private readonly DisjuntorDeProvedores _disjuntor;
@@ -28,7 +28,7 @@ public sealed class MercadoService : IMercadoService
 
     public MercadoService(
         IEnumerable<IProvedorDeCotacoes> provedoresDeCotacao,
-        IProvedorDeFundamentos provedorDeFundamentos,
+        IEnumerable<IProvedorDeFundamentos> provedoresDeFundamentos,
         IProvedorDeIndicadores provedorDeIndicadores,
         IMemoryCache cache,
         DisjuntorDeProvedores disjuntor,
@@ -39,8 +39,13 @@ public sealed class MercadoService : IMercadoService
         ArgumentNullException.ThrowIfNull(opcoes);
 
         _provedoresDeCotacao = provedoresDeCotacao.ToList();
-        _provedorDeFundamentos = provedorDeFundamentos
-            ?? throw new ArgumentNullException(nameof(provedorDeFundamentos));
+        ArgumentNullException.ThrowIfNull(provedoresDeFundamentos);
+
+        // Fundamentos: a FMP entrega o contrato completo; a BRAPI entra como
+        // fallback declarado parcial quando a FMP não cobre o ticker ou está fora.
+        _provedoresDeFundamentos = provedoresDeFundamentos
+            .OrderBy(provedor => provedor.Origem == OrigemDeMercado.Fmp ? 0 : 1)
+            .ToList();
         _provedorDeIndicadores = provedorDeIndicadores
             ?? throw new ArgumentNullException(nameof(provedorDeIndicadores));
         _cache = cache ?? throw new ArgumentNullException(nameof(cache));
@@ -69,8 +74,10 @@ public sealed class MercadoService : IMercadoService
                 continue;
             }
 
-            CotacaoResponse? cotacao = await TentarCotacaoAsync(
+            (CotacaoResponse? cotacao, bool falhou) = await TentarCotacaoAsync(
                 provedor, normalizado, cancellationToken);
+
+            algumaFonteIndisponivel |= falhou;
 
             if (cotacao is null)
                 continue;
@@ -99,33 +106,34 @@ public sealed class MercadoService : IMercadoService
         if (_cache.TryGetValue(chave, out FundamentoResponse? emCache) && emCache is not null)
             return emCache;
 
-        if (!_provedorDeFundamentos.EstaConfigurado)
-            throw new ServicoExternoIndisponivelException(
-                "A fonte de fundamentos não está configurada: defina Integracoes:ChaveFmp.");
+        bool algumaFonteIndisponivel = false;
 
-        if (!_disjuntor.EstaDisponivel(_provedorDeFundamentos.Origem))
-            throw new ServicoExternoIndisponivelException(
-                "A fonte de fundamentos está temporariamente bloqueada após uma falha.");
-
-        try
+        foreach (IProvedorDeFundamentos provedor in _provedoresDeFundamentos)
         {
-            FundamentoResponse? fundamento = await _provedorDeFundamentos
-                .ObterFundamentosAsync(normalizado, cancellationToken);
+            if (!provedor.EstaConfigurado || !_disjuntor.EstaDisponivel(provedor.Origem))
+            {
+                algumaFonteIndisponivel = true;
+                continue;
+            }
 
-            _disjuntor.Fechar(_provedorDeFundamentos.Origem);
+            (FundamentoResponse? fundamento, bool falhou) = await TentarFundamentoAsync(
+                provedor, normalizado, cancellationToken);
+
+            algumaFonteIndisponivel |= falhou;
 
             if (fundamento is null)
-                throw new KeyNotFoundException(
-                    $"O ticker '{normalizado}' não foi encontrado na fonte de fundamentos.");
+                continue;
 
             _cache.Set(chave, fundamento, TimeSpan.FromSeconds(_opcoes.SegundosDeCacheDeFundamento));
             return fundamento;
         }
-        catch (ServicoExternoIndisponivelException excecao)
-        {
-            AbrirDisjuntor(_provedorDeFundamentos.Origem, excecao, "fundamentos", normalizado);
-            throw;
-        }
+
+        if (algumaFonteIndisponivel)
+            throw new ServicoExternoIndisponivelException(
+                $"Nenhuma fonte de fundamentos disponível respondeu para '{normalizado}'.");
+
+        throw new KeyNotFoundException(
+            $"O ticker '{normalizado}' não foi encontrado em nenhuma fonte de fundamentos.");
     }
 
     public async Task<IndicadoresResponse> ObterIndicadoresAsync(CancellationToken cancellationToken)
@@ -154,7 +162,7 @@ public sealed class MercadoService : IMercadoService
         return new IndicadoresResponse { Indicadores = indicadores, Avisos = avisos };
     }
 
-    private async Task<CotacaoResponse?> TentarCotacaoAsync(
+    private async Task<(CotacaoResponse? Cotacao, bool Falhou)> TentarCotacaoAsync(
         IProvedorDeCotacoes provedor,
         string ticker,
         CancellationToken cancellationToken)
@@ -163,12 +171,32 @@ public sealed class MercadoService : IMercadoService
         {
             CotacaoResponse? cotacao = await provedor.ObterCotacaoAsync(ticker, cancellationToken);
             _disjuntor.Fechar(provedor.Origem);
-            return cotacao;
+            return (cotacao, false);
         }
         catch (ServicoExternoIndisponivelException excecao)
         {
             AbrirDisjuntor(provedor.Origem, excecao, "cotação", ticker);
-            return null;
+            return (null, true);
+        }
+    }
+
+    private async Task<(FundamentoResponse? Fundamento, bool Falhou)> TentarFundamentoAsync(
+        IProvedorDeFundamentos provedor,
+        string ticker,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            FundamentoResponse? fundamento = await provedor
+                .ObterFundamentosAsync(ticker, cancellationToken);
+
+            _disjuntor.Fechar(provedor.Origem);
+            return (fundamento, false);
+        }
+        catch (ServicoExternoIndisponivelException excecao)
+        {
+            AbrirDisjuntor(provedor.Origem, excecao, "fundamentos", ticker);
+            return (null, true);
         }
     }
 
