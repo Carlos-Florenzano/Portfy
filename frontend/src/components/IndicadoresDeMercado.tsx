@@ -1,6 +1,7 @@
 // IndicadoresDeMercado.tsx — contexto macroeconômico oficial do Dashboard.
 // Consome mercadoService; nenhuma chamada HTTP acontece neste arquivo.
 import { useEffect, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { mensagemDeErro } from '../services/api';
 import { mercadoService } from '../services/mercadoService';
 import type { IndicadorDeMercado, RespostaDeIndicadores } from '../types/mercado';
@@ -44,37 +45,48 @@ export function IndicadoresDeMercado() {
   }
 
   return (
-    <section className="panel">
-      <div className="panel-header">
+    <section className="rounded-2xl border border-portfy-borda bg-portfy-superficie p-6">
+      <div className="mb-5 flex items-start justify-between gap-4">
         <div>
-          <h2>Mercado hoje</h2>
-          <p>Indicadores oficiais do Banco Central (SGS)</p>
+          <h2 className="text-lg font-bold text-portfy-texto">Mercado hoje</h2>
+          <p className="mt-1 text-sm text-portfy-suave">Indicadores oficiais do Banco Central (SGS)</p>
         </div>
-        <button className="panel-button" onClick={atualizar} disabled={carregando}>
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 rounded-xl border border-portfy-borda px-3.5 py-2 text-xs font-semibold text-portfy-texto transition hover:bg-portfy-superficie-alta disabled:opacity-50"
+          onClick={atualizar}
+          disabled={carregando}
+        >
+          <RefreshCw size={14} aria-hidden />
           Atualizar
         </button>
       </div>
 
-      {carregando && <p className="card-description">Carregando indicadores...</p>}
+      {carregando && <p className="text-sm text-portfy-suave">Carregando indicadores...</p>}
 
       {!carregando && erro !== '' && (
-        <p className="card-description" role="alert">{erro}</p>
+        <p className="text-sm text-portfy-negativo" role="alert">{erro}</p>
       )}
 
       {!carregando && erro === '' && resposta && resposta.indicadores.length === 0 && (
-        <p className="card-description">Nenhum indicador publicado no momento.</p>
+        <p className="text-sm text-portfy-suave">Nenhum indicador publicado no momento.</p>
       )}
 
       {!carregando && erro === '' && resposta && resposta.indicadores.length > 0 && (
         <>
-          <div className="cards">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {resposta.indicadores.map((indicador) => (
-              <div className="card" key={indicador.codigo}>
-                <div className="card-header">
-                  <span>{indicador.codigo}</span>
-                </div>
-                <h2>{formatarValor(indicador)}</h2>
-                <p className="card-description">
+              <div
+                key={indicador.codigo}
+                className="rounded-xl border border-portfy-borda bg-portfy-fundo px-4 py-3"
+              >
+                <span className="block text-xs font-semibold uppercase tracking-wide text-portfy-acento-claro">
+                  {indicador.codigo}
+                </span>
+                <strong className="mt-1 block text-lg font-bold text-portfy-texto">
+                  {formatarValor(indicador)}
+                </strong>
+                <p className="mt-1 text-xs text-portfy-suave">
                   {indicador.descricao} · {formatarData(indicador.data)}
                 </p>
               </div>
@@ -82,7 +94,7 @@ export function IndicadoresDeMercado() {
           </div>
 
           {resposta.avisos.length > 0 && (
-            <p className="card-description" role="status">{resposta.avisos.join(' ')}</p>
+            <p className="mt-3 text-xs text-portfy-alerta" role="status">{resposta.avisos.join(' ')}</p>
           )}
         </>
       )}

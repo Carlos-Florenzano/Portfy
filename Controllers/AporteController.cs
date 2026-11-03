@@ -20,6 +20,30 @@ public class AporteController : ControllerBase
         _aporteService = aporteService ?? throw new ArgumentNullException(nameof(aporteService));
     }
 
+    // GET: api/aporte?inicio=AAAA-MM-DD&fim=AAAA-MM-DD
+    [HttpGet]
+    public IActionResult ObterHistorico(
+        [FromQuery] DateOnly? inicio,
+        [FromQuery] DateOnly? fim)
+    {
+        int? usuarioId = User.ObterUsuarioId();
+
+        if (usuarioId is null)
+            return Forbid();
+
+        HistoricoDeAportes historico = _aporteService.ObterHistorico(
+            usuarioId.Value,
+            inicio,
+            fim);
+
+        return Ok(new HistoricoAportesResponse
+        {
+            Total = historico.Total,
+            Quantidade = historico.Aportes.Count,
+            Aportes = historico.Aportes.Select(MapearAporte).ToList(),
+        });
+    }
+
     // POST: api/aporte
     [HttpPost]
     public IActionResult AdicionarAporte([FromBody] AporteRequest request)
@@ -39,16 +63,18 @@ public class AporteController : ControllerBase
         return Ok(new CriarAporteResponse
         {
             Mensagem = "Aporte realizado com sucesso!",
-            Aporte = new AporteResponse
-            {
-                Id = novoAporte.Id,
-                DataAporte = novoAporte.DataAporte,
-                ValorAportado = novoAporte.ValorAportado,
-                OrigemSalarioId = novoAporte.OrigemSalarioId,
-                CarteiraId = novoAporte.CarteiraId,
-            },
+            Aporte = MapearAporte(novoAporte),
             SaldoDisponivel = realizado.SaldoDisponivel,
             PatrimonioTotal = realizado.PatrimonioTotal,
         });
     }
+
+    private static AporteResponse MapearAporte(AporteSimulado aporte) => new()
+    {
+        Id = aporte.Id,
+        DataAporte = aporte.DataAporte,
+        ValorAportado = aporte.ValorAportado,
+        OrigemSalarioId = aporte.OrigemSalarioId,
+        CarteiraId = aporte.CarteiraId,
+    };
 }

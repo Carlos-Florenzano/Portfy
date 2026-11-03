@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Portfy.Data;
 using Portfy.Models;
 using Portfy.Services.Contracts;
@@ -42,5 +43,42 @@ public sealed class AporteService : IAporteService
             aporte,
             carteira.SaldoDisponivel,
             carteira.CalcularPatrimonioTotal());
+    }
+
+    public HistoricoDeAportes ObterHistorico(int usuarioId, DateOnly? inicio, DateOnly? fim)
+    {
+        if (usuarioId <= 0)
+            throw new ArgumentException("O ID do usuário deve ser um valor positivo.", nameof(usuarioId));
+
+        if (inicio is not null && fim is not null && fim < inicio)
+            throw new ArgumentException(
+                "A data final do período não pode ser anterior à inicial.",
+                nameof(fim));
+
+        // OrigemSalarioId é a identidade do dono do aporte (arch §9.1): o filtro
+        // por usuário nunca depende de join nem do id vindo da URL.
+        IQueryable<AporteSimulado> consulta = _db.AportesSimulados
+            .AsNoTracking()
+            .Where(a => a.OrigemSalarioId == usuarioId);
+
+        if (inicio is not null)
+        {
+            DateTime limiteInferior = inicio.Value.ToDateTime(TimeOnly.MinValue);
+            consulta = consulta.Where(a => a.DataAporte >= limiteInferior);
+        }
+
+        if (fim is not null)
+        {
+            // O fim é inclusivo para o usuário: 2026-11-02 inclui o dia inteiro.
+            DateTime limiteSuperior = fim.Value.AddDays(1).ToDateTime(TimeOnly.MinValue);
+            consulta = consulta.Where(a => a.DataAporte < limiteSuperior);
+        }
+
+        List<AporteSimulado> aportes = consulta
+            .OrderByDescending(a => a.DataAporte)
+            .ThenByDescending(a => a.Id)
+            .ToList();
+
+        return new HistoricoDeAportes(aportes, aportes.Sum(a => a.ValorAportado));
     }
 }

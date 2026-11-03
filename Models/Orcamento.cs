@@ -61,6 +61,21 @@ public class Orcamento
         EhFixo = ehFixo;
     }
 
+    // Redefine o teto planejado sem tocar no valor já gasto: o histórico de
+    // despesas é fato consumado, o limite é decisão editável do dono.
+    public void AtualizarDefinicao(decimal limiteDefinido, decimal percentualDoSalario, bool ehFixo)
+    {
+        if (limiteDefinido < 0)
+            throw new ArgumentOutOfRangeException(nameof(limiteDefinido), "O limite definido não pode ser negativo.");
+
+        if (percentualDoSalario < 0)
+            throw new ArgumentOutOfRangeException(nameof(percentualDoSalario), "O percentual do salário não pode ser negativo.");
+
+        LimiteDefinido = limiteDefinido;
+        PercentualDoSalario = percentualDoSalario;
+        EhFixo = ehFixo;
+    }
+
     // Adiciona uma nova despesa ao orçamento.
     public void AdicionarDespesa(decimal valor)
     {

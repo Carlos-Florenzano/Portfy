@@ -137,6 +137,7 @@ builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<ICarteiraService, CarteiraService>();
 builder.Services.AddScoped<IOrcamentoService, OrcamentoService>();
 builder.Services.AddScoped<IAporteService, AporteService>();
+builder.Services.AddScoped<IRelatorioService, RelatorioService>();
 
 // Fontes de dados de mercado (ADR-020): BRAPI para a B3, FMP para ativos
 // globais e fundamentos, Banco Central (SGS) para macroeconomia. As credenciais
