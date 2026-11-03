@@ -6,9 +6,9 @@ using Portfy.Services.Contracts;
 
 namespace Portfy.Services;
 
-/// Orçamento persistido no SQLite e isolado por usuário (arch §9.1): o orçamento
-/// padrão nasce no cadastro e cada despesa é somada pelo método de domínio
-/// AdicionarDespesa e gravada por SaveChanges. Registrado como Scoped.
+/// Orçamento persistido no SQLite e isolado por usuário (arch §9.1): as categorias
+/// nascem no cadastro e cada despesa é somada pelo método de domínio AdicionarDespesa
+/// e gravada por SaveChanges. Registrado como Scoped.
 public sealed class OrcamentoService : IOrcamentoService
 {
     private readonly AppDbContext _db;
@@ -26,6 +26,85 @@ public sealed class OrcamentoService : IOrcamentoService
         return ConsultarOrcamento(usuarioId) ?? CriarOrcamentoPadrao(usuarioId);
     }
 
+    public IReadOnlyCollection<Orcamento> ObterTodos(int usuarioId)
+    {
+        if (usuarioId <= 0)
+            throw new ArgumentException("O ID do usuário deve ser um valor positivo.", nameof(usuarioId));
+
+        return _db.Orcamentos
+            .AsNoTracking()
+            .Where(o => o.UsuarioId == usuarioId)
+            .OrderBy(o => o.Id)
+            .ToList();
+    }
+
+    public Orcamento? ObterPorId(int usuarioId, int orcamentoId)
+    {
+        if (usuarioId <= 0)
+            throw new ArgumentException("O ID do usuário deve ser um valor positivo.", nameof(usuarioId));
+
+        return _db.Orcamentos
+            .AsNoTracking()
+            .FirstOrDefault(o => o.Id == orcamentoId && o.UsuarioId == usuarioId);
+    }
+
+    public Orcamento Criar(
+        int usuarioId,
+        string nomeCategoria,
+        decimal limiteDefinido,
+        decimal percentualDoSalario,
+        bool ehFixo)
+    {
+        if (!_db.Usuarios.Any(u => u.Id == usuarioId))
+            throw new KeyNotFoundException("Usuário não encontrado.");
+
+        // A duplicidade de categoria é barrada pelo índice único (UsuarioId,
+        // NomeCategoria); o middleware traduz a violação em 409.
+        var orcamento = new Orcamento(
+            usuarioId,
+            nomeCategoria,
+            limiteDefinido,
+            percentualDoSalario,
+            ehFixo);
+
+        _db.Orcamentos.Add(orcamento);
+        _db.SaveChanges();
+
+        return orcamento;
+    }
+
+    public Orcamento? Atualizar(
+        int usuarioId,
+        int orcamentoId,
+        decimal limiteDefinido,
+        decimal percentualDoSalario,
+        bool ehFixo)
+    {
+        Orcamento? orcamento = ConsultarPorId(usuarioId, orcamentoId);
+
+        if (orcamento is null)
+            return null;
+
+        orcamento.AtualizarDefinicao(limiteDefinido, percentualDoSalario, ehFixo);
+
+        _db.SaveChanges();
+
+        return orcamento;
+    }
+
+    public bool Excluir(int usuarioId, int orcamentoId)
+    {
+        Orcamento? orcamento = ConsultarPorId(usuarioId, orcamentoId);
+
+        if (orcamento is null)
+            return false;
+
+        _db.Orcamentos.Remove(orcamento);
+        _db.SaveChanges();
+
+        return true;
+    }
+
     public void AdicionarDespesa(int usuarioId, decimal valor)
     {
         Orcamento orcamento = ObterOrcamento(usuarioId);
@@ -35,11 +114,29 @@ public sealed class OrcamentoService : IOrcamentoService
         _db.SaveChanges();
     }
 
+    public Orcamento? AdicionarDespesa(int usuarioId, int orcamentoId, decimal valor)
+    {
+        Orcamento? orcamento = ConsultarPorId(usuarioId, orcamentoId);
+
+        if (orcamento is null)
+            throw new KeyNotFoundException("Orçamento não encontrado.");
+
+        orcamento.AdicionarDespesa(valor);
+
+        _db.SaveChanges();
+
+        return orcamento;
+    }
+
     private Orcamento? ConsultarOrcamento(int usuarioId) =>
         _db.Orcamentos
             .Where(o => o.UsuarioId == usuarioId)
             .OrderBy(o => o.Id)
             .FirstOrDefault();
+
+    private Orcamento? ConsultarPorId(int usuarioId, int orcamentoId) =>
+        _db.Orcamentos
+            .FirstOrDefault(o => o.Id == orcamentoId && o.UsuarioId == usuarioId);
 
     private Orcamento CriarOrcamentoPadrao(int usuarioId)
     {

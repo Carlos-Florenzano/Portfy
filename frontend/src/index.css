@@ -1,7 +1,34 @@
 /* O index.css é responsável pelas regras visuais padrão da aplicação inteira. */
 /* Escopo: Tudo o que for estilizado aqui afeta qualquer tag HTML de qualquer componente da aplicação. */
+@import "tailwindcss";
+
+/*
+  Tokens do tema: a paleta acompanha os mockups de referência em
+  `notas/etc/img_frontend` — base escura neutra, texto claro e três acentos
+  (azul do dashboard, esmeralda de investimentos, âmbar de orçamento).
+  Toda cor nova deve sair daqui, nunca de um hexadecimal solto na tela.
+*/
+
+@theme {
+  --color-portfy-fundo: #031427;  
+  --color-portfy-superficie: #020d1a;  
+  --color-portfy-superficie-alta: #091f3b;
+  --color-portfy-borda: #142f54;  
+  --color-portfy-texto: #ffffff;  
+  --color-portfy-suave: #9bb1cf;  
+  --color-portfy-acento: #0052cc; 
+  --color-portfy-acento-claro: #1d72fe; 
+  --color-portfy-positivo: #10b981; 
+  --color-portfy-alerta: #f59e0b; 
+  --color-portfy-negativo: #ef4444; 
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
 }
 
 html, body {
@@ -9,7 +36,8 @@ html, body {
   padding: 0;
   width: 100%;
   min-height: 100vh;
-  background-color: #0b1329;
+  background-color: var(--color-portfy-fundo);
+  color: var(--color-portfy-texto);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
 }

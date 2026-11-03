@@ -95,7 +95,7 @@ function Login({ onLogin, onCadastro, aviso, erroInicial }: LoginProps) {
 
                 <p className="cadastro">
                     Ainda não possui uma conta?
-                    <span onClick={onCadastro}>Criar conta</span>
+                    <span onClick={onCadastro}> Criar conta</span>
                 </p>
             </div>
         </div>

@@ -36,6 +36,29 @@ public class AtivoController : ControllerBase
         return Ok(MapearAtivo(ativo));
     }
 
+    // POST: api/ativo — cadastro de um ativo no catálogo. Exige token porque
+    // altera dado compartilhado por todos os usuários.
+    [HttpPost]
+    [Authorize]
+    public IActionResult Criar([FromBody] CriarAtivoRequest request)
+    {
+        if (_ativoService.ObterPorTicker(request.Ticker) is not null)
+            return Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                detail: $"Já existe um ativo com o ticker '{request.Ticker}' no catálogo.");
+
+        Ativo ativo = _ativoService.Criar(
+            request.Ticker.ToUpperInvariant(),
+            request.Nome,
+            request.Tipo,
+            request.PrecoAtual);
+
+        return CreatedAtAction(
+            nameof(ObterPorTicker),
+            new { ticker = ativo.Ticker },
+            MapearAtivo(ativo));
+    }
+
     // POST: api/ativo/{ticker}/simular
     [HttpPost("{ticker}/simular")]
     [Authorize]

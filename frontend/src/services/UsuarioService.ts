@@ -61,6 +61,13 @@ export interface MensagemResposta {
   mensagem: string;
 }
 
+// Resposta do PUT /usuario/{id}/salario: traz o salário anterior e o novo.
+export interface SalarioAtualizado {
+  mensagem: string;
+  salarioAnterior: number;
+  novoSalario: number;
+}
+
 export const usuarioService = {
   // CREATE (Cadastro)
   cadastrar: async (dados: CadastroUsuarioDto): Promise<UsuarioConfirmado> => {
@@ -83,6 +90,12 @@ export const usuarioService = {
   // UPDATE (Nome e Salário)
   atualizar: async (id: number, dados: AtualizarUsuarioDto): Promise<UsuarioAtualizado> => {
     const resposta = await api.put<UsuarioAtualizado>(`/usuario/${id}`, dados);
+    return resposta.data;
+  },
+
+  // UPDATE (somente renda): rota dedicada usada pelo módulo Salário e Orçamento.
+  atualizarSalario: async (id: number, novoSalario: number): Promise<SalarioAtualizado> => {
+    const resposta = await api.put<SalarioAtualizado>(`/usuario/${id}/salario`, { novoSalario });
     return resposta.data;
   },
 

@@ -36,6 +36,31 @@ public sealed class AtivoService : IAtivoService
         // COLLATE NOCASE na coluna Ticker preserva a busca sem diferenciar caixa.
         _db.Ativos.FirstOrDefault(a => a.Ticker == ticker);
 
+    public Ativo Criar(string ticker, string nome, string tipo, decimal precoAtual)
+    {
+        if (!Enum.TryParse(tipo, ignoreCase: true, out TipoAtivo tipoAtivo))
+            throw new ArgumentException(
+                "O tipo deve ser Acao, Fii, RendaFixa, Cripto ou Etf.",
+                nameof(tipo));
+
+        // Cada subtipo tem sua própria invariante; o serviço só escolhe o construtor,
+        // nunca replica validação de domínio. Taxas não informadas começam em zero.
+        Ativo ativo = tipoAtivo switch
+        {
+            TipoAtivo.Acao => new Acao(ticker, nome, precoAtual, dividendYieldAnual: 0m),
+            TipoAtivo.Fii => new FundoImobiliario(ticker, nome, precoAtual, rendimentoMensalPorCota: 0m),
+            TipoAtivo.RendaFixa => new RendaFixa(ticker, nome, precoAtual, taxaAnualContratada: 0m),
+            TipoAtivo.Cripto => new Cripto(ticker, nome, precoAtual, taxaStakingAnual: 0m),
+            TipoAtivo.Etf => new Etf(ticker, nome, precoAtual, indiceReferencia: "Não informado", taxaAdministracaoAnual: 0m),
+            _ => throw new ArgumentException("Tipo de ativo não suportado.", nameof(tipo)),
+        };
+
+        _db.Ativos.Add(ativo);
+        _db.SaveChanges();
+
+        return ativo;
+    }
+
     public VariacaoSimulada? SimularVariacao(string ticker, decimal? percentualCustomizado)
     {
         Ativo? ativo = ObterPorTicker(ticker);

@@ -9,5 +9,9 @@ public interface IAtivoService
 
     Ativo? ObterPorTicker(string ticker);
 
+    /// Cadastra um ativo no catálogo. `tipo` é o nome de TipoAtivo; um valor
+    /// desconhecido é recusado como ArgumentException (400).
+    Ativo Criar(string ticker, string nome, string tipo, decimal precoAtual);
+
     VariacaoSimulada? SimularVariacao(string ticker, decimal? percentualCustomizado);
 }
