@@ -95,7 +95,7 @@ public class OrcamentoController : ControllerBase
             MapearOrcamento(orcamento));
     }
 
-    // PUT: api/orcamento/{id} — redefine limite, percentual e recorrência.
+    // PUT: api/orcamento/{id} — redefine nome, limite, percentual e recorrência.
     [HttpPut("{id:int}")]
     public IActionResult Atualizar(int id, [FromBody] AtualizarOrcamentoRequest request)
     {
@@ -107,6 +107,7 @@ public class OrcamentoController : ControllerBase
         Orcamento? orcamento = _orcamentoService.Atualizar(
             usuarioId.Value,
             id,
+            request.NomeCategoria?.Trim(),
             request.LimiteDefinido,
             request.PercentualDoSalario,
             request.EhFixo);

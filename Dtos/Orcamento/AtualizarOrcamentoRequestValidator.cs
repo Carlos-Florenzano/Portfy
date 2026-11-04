@@ -2,11 +2,17 @@ using FluentValidation;
 
 namespace Portfy.Dtos.Orcamento;
 
-/// Mesmas regras de forma da criação; o nome da categoria não é editável.
+/// Mesmas regras de forma da criação. O nome é opcional (contrato anterior), mas
+/// quando enviado precisa ser um texto não vazio e dentro do limite da coluna.
 public sealed class AtualizarOrcamentoRequestValidator : AbstractValidator<AtualizarOrcamentoRequest>
 {
     public AtualizarOrcamentoRequestValidator()
     {
+        RuleFor(requisicao => requisicao.NomeCategoria)
+            .NotEmpty().WithMessage("O nome da categoria não pode ser vazio.")
+            .MaximumLength(60).WithMessage("O nome da categoria deve ter até 60 caracteres.")
+            .When(requisicao => requisicao.NomeCategoria is not null);
+
         RuleFor(requisicao => requisicao.LimiteDefinido)
             .GreaterThanOrEqualTo(0).WithMessage("O limite definido não pode ser negativo.");
 

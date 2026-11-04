@@ -62,4 +62,28 @@ public class OrcamentoTests
         Assert.True(orcamento.ValidarEstouroOrcamento());
         Assert.Equal(-50m, orcamento.ObterSaldoRestante());
     }
+
+    [Fact]
+    public void Renomear_TrocaONomeSemTocarNoHistoricoDeGastos()
+    {
+        var orcamento = new Orcamento(1, "Moradia", 1000m, 25m);
+        orcamento.AdicionarDespesa(200m);
+
+        orcamento.Renomear("Casa");
+
+        Assert.Equal("Casa", orcamento.NomeCategoria);
+        Assert.Equal(200m, orcamento.ValorGastoAtual);
+        Assert.Equal(1000m, orcamento.LimiteDefinido);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Renomear_RecusaNomeVazio(string nome)
+    {
+        var orcamento = new Orcamento(1, "Moradia", 1000m, 25m);
+
+        Assert.Throws<ArgumentException>(() => orcamento.Renomear(nome));
+        Assert.Equal("Moradia", orcamento.NomeCategoria);
+    }
 }

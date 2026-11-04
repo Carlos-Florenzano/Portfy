@@ -24,6 +24,7 @@ public interface IOrcamentoService
     Orcamento? Atualizar(
         int usuarioId,
         int orcamentoId,
+        string? nomeCategoria,
         decimal limiteDefinido,
         decimal percentualDoSalario,
         bool ehFixo);
