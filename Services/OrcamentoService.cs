@@ -76,6 +76,7 @@ public sealed class OrcamentoService : IOrcamentoService
     public Orcamento? Atualizar(
         int usuarioId,
         int orcamentoId,
+        string? nomeCategoria,
         decimal limiteDefinido,
         decimal percentualDoSalario,
         bool ehFixo)
@@ -85,8 +86,14 @@ public sealed class OrcamentoService : IOrcamentoService
         if (orcamento is null)
             return null;
 
+        // Nome nulo mantém o contrato anterior (só teto/percentual/recorrência).
+        if (nomeCategoria is not null)
+            orcamento.Renomear(nomeCategoria);
+
         orcamento.AtualizarDefinicao(limiteDefinido, percentualDoSalario, ehFixo);
 
+        // Colisão de nome é barrada pelo índice único (UsuarioId, NomeCategoria);
+        // o middleware traduz a violação em 409.
         _db.SaveChanges();
 
         return orcamento;

@@ -32,6 +32,7 @@ function ItemDeOrcamento({
 }) {
     const [editando, setEditando] = useState(false);
     const [lancandoDespesa, setLancandoDespesa] = useState(false);
+    const [nomeCategoria, setNomeCategoria] = useState(orcamento.nomeCategoria);
     const [limite, setLimite] = useState(orcamento.limiteDefinido.toString());
     const [percentual, setPercentual] = useState(orcamento.percentualDoSalario.toString());
     const [ehFixo, setEhFixo] = useState(orcamento.ehFixo);
@@ -44,17 +45,32 @@ function ItemDeOrcamento({
         ? Math.min(100, (orcamento.valorGastoAtual / orcamento.limiteDefinido) * 100)
         : 0;
 
+    // Repõe os campos com o estado persistido: usado ao abrir e ao cancelar a edição.
+    function preencherCampos(origem: Orcamento) {
+        setNomeCategoria(origem.nomeCategoria);
+        setLimite(origem.limiteDefinido.toString());
+        setPercentual(origem.percentualDoSalario.toString());
+        setEhFixo(origem.ehFixo);
+    }
+
+    function cancelarEdicao() {
+        preencherCampos(orcamento);
+        setEditando(false);
+    }
+
     async function salvarEdicao() {
         try {
             setOcupado(true);
-            await orcamentoService.atualizar(orcamento.id, {
+            const atualizado = await orcamentoService.atualizar(orcamento.id, {
+                nomeCategoria: nomeCategoria.trim(),
                 limiteDefinido: Number(limite) || 0,
                 percentualDoSalario: Number(percentual) || 0,
                 ehFixo,
             });
+            preencherCampos(atualizado);
             await onRecarregar();
             setEditando(false);
-            onRecado({ tipo: 'sucesso', texto: `Orçamento de ${orcamento.nomeCategoria} atualizado.` });
+            onRecado({ tipo: 'sucesso', texto: `Orçamento de ${atualizado.nomeCategoria} atualizado.` });
         } catch (falha: unknown) {
             onRecado({ tipo: 'erro', texto: mensagemDeErro(falha) });
         } finally {
@@ -124,7 +140,18 @@ function ItemDeOrcamento({
                         <Receipt size={15} aria-hidden />
                         Despesa
                     </Botao>
-                    <Botao variante="secundario" onClick={() => setEditando((valor) => !valor)} disabled={ocupado}>
+                    <Botao
+                        variante="secundario"
+                        onClick={() => {
+                            if (editando) {
+                                cancelarEdicao();
+                            } else {
+                                preencherCampos(orcamento);
+                                setEditando(true);
+                            }
+                        }}
+                        disabled={ocupado}
+                    >
                         <Pencil size={15} aria-hidden />
                         Editar
                     </Botao>
@@ -172,6 +199,19 @@ function ItemDeOrcamento({
 
             {editando && (
                 <div className="mt-3 flex flex-wrap items-end gap-2 rounded-xl border border-portfy-borda bg-portfy-fundo p-3">
+                    <div className="min-w-40 flex-1">
+                        <label className={classesDeRotulo} htmlFor={`categoria-${orcamento.id}`}>
+                            Categoria
+                        </label>
+                        <input
+                            id={`categoria-${orcamento.id}`}
+                            className={classesDeEntrada}
+                            type="text"
+                            maxLength={60}
+                            value={nomeCategoria}
+                            onChange={(evento) => setNomeCategoria(evento.target.value)}
+                        />
+                    </div>
                     <div className="min-w-36 flex-1">
                         <label className={classesDeRotulo} htmlFor={`limite-${orcamento.id}`}>
                             Limite (R$)
@@ -210,11 +250,11 @@ function ItemDeOrcamento({
                         />
                         Gasto fixo
                     </label>
-                    <Botao onClick={() => void salvarEdicao()} disabled={ocupado}>
+                    <Botao onClick={() => void salvarEdicao()} disabled={ocupado || nomeCategoria.trim() === ''}>
                         <Check size={15} aria-hidden />
                         Salvar
                     </Botao>
-                    <Botao variante="secundario" onClick={() => setEditando(false)} disabled={ocupado}>
+                    <Botao variante="secundario" onClick={cancelarEdicao} disabled={ocupado}>
                         <X size={15} aria-hidden />
                         Cancelar
                     </Botao>

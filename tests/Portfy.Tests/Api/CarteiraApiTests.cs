@@ -69,6 +69,15 @@ public class CarteiraApiTests
         bool Estourado,
         bool EhFixo);
 
+    private sealed record OrcamentoComIdDaApi(
+        int Id,
+        string NomeCategoria,
+        decimal LimiteDefinido,
+        decimal PercentualDoSalario,
+        bool EhFixo);
+
+    private sealed record ListaDeOrcamentosDaApi(List<OrcamentoComIdDaApi> Orcamentos);
+
     private static async Task<(HttpClient Cliente, int UsuarioId)> CriarUsuarioAutenticadoAsync(
         ApiFactory fabrica,
         string login)
@@ -290,5 +299,113 @@ public class CarteiraApiTests
         Assert.Equal(200m, orcamentoAna.ValorGastoAtual);
         Assert.Equal(1000m, orcamentoAna.SaldoRestante);
         Assert.Equal(0m, orcamentoBruno.ValorGastoAtual);
+    }
+
+    [Fact]
+    public async Task Orcamento_RenomeiaCategoriaNoPut()
+    {
+        using var fabrica = new ApiFactory();
+        var (cliente, _) = await CriarUsuarioAutenticadoAsync(fabrica, "ana@portfy.test");
+
+        (await cliente.PostAsJsonAsync("/api/orcamento", new
+        {
+            nomeCategoria = "Lazer",
+            limiteDefinido = 300m,
+            percentualDoSalario = 10m,
+            ehFixo = false,
+        })).EnsureSuccessStatusCode();
+
+        ListaDeOrcamentosDaApi antes =
+            (await cliente.GetFromJsonAsync<ListaDeOrcamentosDaApi>("/api/orcamento/todos"))!;
+        OrcamentoComIdDaApi lazer =
+            Assert.Single(antes.Orcamentos, o => o.NomeCategoria == "Lazer");
+
+        HttpResponseMessage resposta = await cliente.PutAsJsonAsync(
+            $"/api/orcamento/{lazer.Id}",
+            new
+            {
+                nomeCategoria = "Entretenimento",
+                limiteDefinido = 350m,
+                percentualDoSalario = 12m,
+                ehFixo = true,
+            });
+
+        resposta.EnsureSuccessStatusCode();
+
+        OrcamentoComIdDaApi atualizado =
+            (await resposta.Content.ReadFromJsonAsync<OrcamentoComIdDaApi>())!;
+
+        Assert.Equal("Entretenimento", atualizado.NomeCategoria);
+        Assert.Equal(350m, atualizado.LimiteDefinido);
+        Assert.True(atualizado.EhFixo);
+
+        ListaDeOrcamentosDaApi depois =
+            (await cliente.GetFromJsonAsync<ListaDeOrcamentosDaApi>("/api/orcamento/todos"))!;
+
+        Assert.Contains(
+            depois.Orcamentos,
+            o => o.Id == lazer.Id && o.NomeCategoria == "Entretenimento");
+    }
+
+    [Fact]
+    public async Task Orcamento_RenomearParaCategoriaExistente_Retorna409()
+    {
+        using var fabrica = new ApiFactory();
+        var (cliente, _) = await CriarUsuarioAutenticadoAsync(fabrica, "ana@portfy.test");
+
+        (await cliente.PostAsJsonAsync("/api/orcamento", new
+        {
+            nomeCategoria = "Lazer",
+            limiteDefinido = 300m,
+            percentualDoSalario = 10m,
+            ehFixo = false,
+        })).EnsureSuccessStatusCode();
+
+        ListaDeOrcamentosDaApi lista =
+            (await cliente.GetFromJsonAsync<ListaDeOrcamentosDaApi>("/api/orcamento/todos"))!;
+        OrcamentoComIdDaApi alimentacao =
+            Assert.Single(lista.Orcamentos, o => o.NomeCategoria == "Alimentação");
+
+        HttpResponseMessage resposta = await cliente.PutAsJsonAsync(
+            $"/api/orcamento/{alimentacao.Id}",
+            new
+            {
+                nomeCategoria = "Lazer",
+                limiteDefinido = 1200m,
+                percentualDoSalario = 24m,
+                ehFixo = false,
+            });
+
+        Assert.Equal(HttpStatusCode.Conflict, resposta.StatusCode);
+    }
+
+    [Fact]
+    public async Task Orcamento_AtualizarSemNome_PreservaCategoria()
+    {
+        using var fabrica = new ApiFactory();
+        var (cliente, _) = await CriarUsuarioAutenticadoAsync(fabrica, "ana@portfy.test");
+
+        ListaDeOrcamentosDaApi lista =
+            (await cliente.GetFromJsonAsync<ListaDeOrcamentosDaApi>("/api/orcamento/todos"))!;
+        OrcamentoComIdDaApi alimentacao =
+            Assert.Single(lista.Orcamentos, o => o.NomeCategoria == "Alimentação");
+
+        (await cliente.PutAsJsonAsync(
+            $"/api/orcamento/{alimentacao.Id}",
+            new
+            {
+                limiteDefinido = 1500m,
+                percentualDoSalario = 30m,
+                ehFixo = true,
+            })).EnsureSuccessStatusCode();
+
+        ListaDeOrcamentosDaApi depois =
+            (await cliente.GetFromJsonAsync<ListaDeOrcamentosDaApi>("/api/orcamento/todos"))!;
+        OrcamentoComIdDaApi atualizado =
+            Assert.Single(depois.Orcamentos, o => o.Id == alimentacao.Id);
+
+        Assert.Equal("Alimentação", atualizado.NomeCategoria);
+        Assert.Equal(1500m, atualizado.LimiteDefinido);
+        Assert.True(atualizado.EhFixo);
     }
 }

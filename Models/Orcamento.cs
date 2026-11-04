@@ -76,6 +76,16 @@ public class Orcamento
         EhFixo = ehFixo;
     }
 
+    // Renomeia a categoria mantendo a mesma identidade e o histórico de gastos.
+    // A unicidade por usuário é garantida pelo índice (UsuarioId, NomeCategoria).
+    public void Renomear(string nomeCategoria)
+    {
+        if (string.IsNullOrWhiteSpace(nomeCategoria))
+            throw new ArgumentException("O nome da categoria não pode ser vazio.", nameof(nomeCategoria));
+
+        NomeCategoria = nomeCategoria;
+    }
+
     // Adiciona uma nova despesa ao orçamento.
     public void AdicionarDespesa(decimal valor)
     {

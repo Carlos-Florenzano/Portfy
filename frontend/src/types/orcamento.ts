@@ -28,8 +28,9 @@ export interface NovoOrcamento {
     ehFixo: boolean;
 }
 
-// O nome da categoria é imutável no PUT: só teto, percentual e recorrência mudam.
+// O PUT aceita o nome junto com teto, percentual e recorrência.
 export interface AlteracaoOrcamento {
+    nomeCategoria: string;
     limiteDefinido: number;
     percentualDoSalario: number;
     ehFixo: boolean;
