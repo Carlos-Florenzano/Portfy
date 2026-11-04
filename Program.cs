@@ -86,6 +86,19 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
             }));
 
+    // Cadastro é anônimo e cada chamada executa BCrypt (custo de CPU): sem limite
+    // por IP, um cliente satura o servidor com cadastros em massa. Janela própria
+    // para não gastar o orçamento de tentativas de login.
+    options.AddPolicy(PoliticasDeRateLimit.Cadastro, contexto =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            contexto.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
     // Rotas de mercado são públicas e cada falha de cache vira chamada a um
     // provedor com cota limitada; o limite por IP protege essa cota.
     options.AddPolicy(PoliticasDeRateLimit.Mercado, contexto =>

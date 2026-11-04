@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import "./Login.css";
 import { mensagemDeErro } from "./services/api";
 import { salvarSessao } from "./services/sessao";
@@ -14,6 +15,8 @@ interface LoginProps {
 function Login({ onLogin, onCadastro, aviso, erroInicial }: LoginProps) {
     const [email, setEmail] = useState("");
     const [senha, setSenha] = useState("");
+    // Controla apenas a exibição do texto: o valor digitado não muda.
+    const [senhaVisivel, setSenhaVisivel] = useState(false);
     const [erro, setErro] = useState(erroInicial ?? "");
     const [carregando, setCarregando] = useState(false);
 
@@ -76,13 +79,27 @@ function Login({ onLogin, onCadastro, aviso, erroInicial }: LoginProps) {
 
                     <div className="campo">
                         <label htmlFor="senha">Senha</label>
-                        <input
-                            id="senha"
-                            type="password"
-                            placeholder="Digite sua senha"
-                            value={senha}
-                            onChange={(event) => setSenha(event.target.value)}
-                        />
+                        <div className="campo-senha">
+                            <input
+                                id="senha"
+                                type={senhaVisivel ? "text" : "password"}
+                                placeholder="Digite sua senha"
+                                value={senha}
+                                onChange={(event) => setSenha(event.target.value)}
+                            />
+                            <button
+                                type="button"
+                                className="botao-senha"
+                                onClick={() => setSenhaVisivel((visivel) => !visivel)}
+                                aria-label={senhaVisivel ? "Ocultar senha" : "Mostrar senha"}
+                                aria-pressed={senhaVisivel}
+                                title={senhaVisivel ? "Ocultar senha" : "Mostrar senha"}
+                            >
+                                {senhaVisivel
+                                    ? <EyeOff size={18} aria-hidden="true" />
+                                    : <Eye size={18} aria-hidden="true" />}
+                            </button>
+                        </div>
                     </div>
 
                     {aviso && !erro && <p className="mensagem-sucesso">{aviso}</p>}
