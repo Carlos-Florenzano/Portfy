@@ -32,6 +32,7 @@ public class UsuarioController : ControllerBase
     // POST: api/usuario/cadastro
     [HttpPost("cadastro")]
     [AllowAnonymous]
+    [EnableRateLimiting(PoliticasDeRateLimit.Cadastro)]
     public IActionResult Cadastrar([FromBody] CadastroRequest request)
     {
         if (_usuarioService.LoginJaExiste(request.Login))

@@ -6,6 +6,11 @@ public static class PoliticasDeRateLimit
 {
     public const string Login = "login";
 
+    /// Cadastro é anônimo e cada chamada executa BCrypt: sem limite por IP, um
+    /// cliente satura a CPU com cadastros em massa. Orçamento separado do login
+    /// para que o abuso de um não consuma as tentativas legítimas do outro.
+    public const string Cadastro = "cadastro";
+
     /// Consultas de mercado: o cache interno já reduz a ida às fontes externas, e
     /// o limite por IP protege a cota do plano gratuito de quem consome a API.
     public const string Mercado = "mercado";
