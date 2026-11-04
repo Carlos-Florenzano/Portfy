@@ -1,7 +1,7 @@
 // Módulo "Relatórios": consolidação por período e exportação em CSV.
 // O backend entrega os totais; a tela só formata e baixa o arquivo.
-import { useCallback, useEffect, useState } from 'react';
-import { BarChart3, Download, RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { BarChart3, CalendarDays, Download, RefreshCw } from 'lucide-react';
 import { mensagemDeErro } from '../services/api';
 import { relatorioService } from '../services/RelatorioService';
 import type { Relatorio } from '../types/relatorio';
@@ -30,6 +30,112 @@ function baixarArquivo(conteudo: Blob, nome: string) {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+}
+
+// Mantém só dígitos e monta dd/mm/aaaa enquanto a pessoa digita ou cola.
+function mascararData(texto: string): string {
+    const digitos = texto.replace(/\D/g, '').slice(0, 8);
+
+    return digitos
+        .replace(/^(\d{2})(\d)/, '$1/$2')
+        .replace(/^(\d{2})\/(\d{2})(\d)/, '$1/$2/$3');
+}
+
+// dd/mm/aaaa → yyyy-mm-dd (contrato da API). Devolve null quando incompleta ou inválida.
+function dataParaIso(texto: string): string | null {
+    const partes = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(texto.trim());
+
+    if (!partes) return null;
+
+    const dia = Number(partes[1]);
+    const mes = Number(partes[2]);
+    const ano = Number(partes[3]);
+    const data = new Date(ano, mes - 1, dia);
+
+    if (
+        data.getFullYear() !== ano ||
+        data.getMonth() !== mes - 1 ||
+        data.getDate() !== dia
+    ) {
+        return null;
+    }
+
+    return `${partes[3]}-${partes[2]}-${partes[1]}`;
+}
+
+function isoParaTexto(iso: string): string {
+    const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+
+    return partes ? `${partes[3]}/${partes[2]}/${partes[1]}` : '';
+}
+
+// Campo de data do período: aceita digitação em dd/mm/aaaa e mantém o
+// calendário nativo acessível pelo ícone, sem mudar o padrão visual da tela.
+function CampoDeData({
+    id,
+    rotulo,
+    valor,
+    aoAlterar,
+    descricaoDoCalendario,
+}: {
+    id: string;
+    rotulo: string;
+    valor: string;
+    aoAlterar: (texto: string) => void;
+    descricaoDoCalendario: string;
+}) {
+    const seletorNativo = useRef<HTMLInputElement>(null);
+    const iso = dataParaIso(valor);
+
+    function abrirCalendario() {
+        const campo = seletorNativo.current;
+
+        if (!campo) return;
+
+        try {
+            campo.showPicker();
+        } catch {
+            // Navegador sem seletor nativo: o campo de texto continua aceitando digitação.
+            campo.focus();
+        }
+    }
+
+    return (
+        <div className="min-w-40 flex-1">
+            <label className={classesDeRotulo} htmlFor={id}>
+                {rotulo}
+            </label>
+            <div className="relative">
+                <input
+                    id={id}
+                    className={`${classesDeEntrada} pr-11`}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="dd/mm/aaaa"
+                    maxLength={10}
+                    value={valor}
+                    onChange={(evento) => aoAlterar(mascararData(evento.target.value))}
+                />
+                <button
+                    type="button"
+                    onClick={abrirCalendario}
+                    aria-label={descricaoDoCalendario}
+                    className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-portfy-suave transition hover:text-portfy-acento focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-portfy-acento/30"
+                >
+                    <CalendarDays size={16} aria-hidden />
+                </button>
+                <input
+                    ref={seletorNativo}
+                    type="date"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-y-0 right-0 w-10 border-0 p-0 opacity-0"
+                    value={iso ?? ''}
+                    onChange={(evento) => aoAlterar(isoParaTexto(evento.target.value))}
+                />
+            </div>
+        </div>
+    );
 }
 
 function IndicadorDoRelatorio({ rotulo, valor, destaque = false }: { rotulo: string; valor: string; destaque?: boolean }) {
@@ -77,10 +183,39 @@ export function Relatorios() {
         };
     }, [carregar]);
 
+    // Converte o texto digitado (dd/mm/aaaa) para o ISO aceito pela API.
+    function periodoParaConsulta(): { inicio: string | undefined; fim: string | undefined } | null {
+        const inicioDigitado = inicio.trim();
+        const fimDigitado = fim.trim();
+        const inicioIso = inicioDigitado === '' ? null : dataParaIso(inicioDigitado);
+        const fimIso = fimDigitado === '' ? null : dataParaIso(fimDigitado);
+
+        if (inicioDigitado !== '' && inicioIso === null) {
+            setRecado({ tipo: 'erro', texto: 'Data inicial inválida. Use o formato dd/mm/aaaa.' });
+            return null;
+        }
+
+        if (fimDigitado !== '' && fimIso === null) {
+            setRecado({ tipo: 'erro', texto: 'Data final inválida. Use o formato dd/mm/aaaa.' });
+            return null;
+        }
+
+        if (inicioIso && fimIso && inicioIso > fimIso) {
+            setRecado({ tipo: 'erro', texto: 'A data inicial não pode ser posterior à data final.' });
+            return null;
+        }
+
+        return { inicio: inicioIso ?? undefined, fim: fimIso ?? undefined };
+    }
+
     async function gerar() {
+        const periodo = periodoParaConsulta();
+
+        if (!periodo) return;
+
         try {
             setCarregando(true);
-            await carregar(inicio, fim);
+            await carregar(periodo.inicio, periodo.fim);
             setRecado(null);
         } catch (falha: unknown) {
             setRecado({ tipo: 'erro', texto: mensagemDeErro(falha) });
@@ -90,9 +225,13 @@ export function Relatorios() {
     }
 
     async function exportar() {
+        const periodo = periodoParaConsulta();
+
+        if (!periodo) return;
+
         try {
             setBaixando(true);
-            const arquivo = await relatorioService.exportarCsv(inicio, fim);
+            const arquivo = await relatorioService.exportarCsv(periodo.inicio, periodo.fim);
             baixarArquivo(arquivo.conteudo, arquivo.nome);
             setRecado({ tipo: 'sucesso', texto: `Arquivo ${arquivo.nome} gerado.` });
         } catch (falha: unknown) {
@@ -113,30 +252,20 @@ export function Relatorios() {
                 />
 
                 <div className="flex flex-wrap items-end gap-3">
-                    <div className="min-w-40 flex-1">
-                        <label className={classesDeRotulo} htmlFor="relatorio-inicio">
-                            De
-                        </label>
-                        <input
-                            id="relatorio-inicio"
-                            className={classesDeEntrada}
-                            type="date"
-                            value={inicio}
-                            onChange={(evento) => setInicio(evento.target.value)}
-                        />
-                    </div>
-                    <div className="min-w-40 flex-1">
-                        <label className={classesDeRotulo} htmlFor="relatorio-fim">
-                            Até
-                        </label>
-                        <input
-                            id="relatorio-fim"
-                            className={classesDeEntrada}
-                            type="date"
-                            value={fim}
-                            onChange={(evento) => setFim(evento.target.value)}
-                        />
-                    </div>
+                    <CampoDeData
+                        id="relatorio-inicio"
+                        rotulo="De"
+                        valor={inicio}
+                        aoAlterar={setInicio}
+                        descricaoDoCalendario="Escolher a data inicial no calendário"
+                    />
+                    <CampoDeData
+                        id="relatorio-fim"
+                        rotulo="Até"
+                        valor={fim}
+                        aoAlterar={setFim}
+                        descricaoDoCalendario="Escolher a data final no calendário"
+                    />
 
                     <Botao onClick={() => void gerar()} disabled={carregando}>
                         <RefreshCw size={15} aria-hidden />
