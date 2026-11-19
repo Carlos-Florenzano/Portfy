@@ -78,6 +78,25 @@ public class AtivoController : ControllerBase
         });
     }
 
+    // GET: api/ativo/{ticker}/rendimento?quantidade=10
+    // Leitura pura: mostra o rendimento calculado pela implementação do subtipo.
+    [HttpGet("{ticker}/rendimento")]
+    public IActionResult CalcularRendimento(string ticker, [FromQuery] int quantidade)
+    {
+        RendimentoEstimado? rendimento = _ativoService.CalcularRendimentoEstimado(ticker, quantidade);
+
+        if (rendimento is null)
+            return AtivoNaoEncontrado(ticker);
+
+        return Ok(new RendimentoEstimadoResponse
+        {
+            Ticker = rendimento.Ativo.Ticker,
+            Tipo = rendimento.Ativo.Tipo.ToString(),
+            Quantidade = rendimento.Quantidade,
+            RendimentoMensalEstimado = rendimento.Valor,
+        });
+    }
+
     private AtivoResponse MapearAtivo(Ativo ativo) => new()
     {
         Ticker = ativo.Ticker,

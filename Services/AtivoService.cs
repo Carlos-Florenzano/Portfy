@@ -83,4 +83,24 @@ public sealed class AtivoService : IAtivoService
 
         return new VariacaoSimulada(ativo, precoAnterior);
     }
+
+    public RendimentoEstimado? CalcularRendimentoEstimado(string ticker, int quantidade)
+    {
+        if (quantidade <= 0)
+            throw new ArgumentException(
+                "A quantidade deve ser maior que zero.",
+                nameof(quantidade));
+
+        Ativo? ativo = ObterPorTicker(ticker);
+
+        if (ativo is null)
+            return null;
+
+        // Chamada polimórfica: a referência é `Ativo` (abstrata) e quem responde é a
+        // implementação do subtipo. Nenhum `switch` de tipo aqui — se um subtipo novo
+        // aparecer, ele já participa sem alterar este serviço.
+        decimal rendimento = ativo.CalcularRendimento(quantidade, 0m);
+
+        return new RendimentoEstimado(ativo, quantidade, rendimento);
+    }
 }

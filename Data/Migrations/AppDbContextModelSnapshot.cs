@@ -104,6 +104,13 @@ namespace Portfy.Data.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("Ativa");
+
                     b.Property<int>("UsuarioId")
                         .HasColumnType("INTEGER");
 

@@ -4,7 +4,7 @@ O **Portfy** é um sistema em C# voltado para a gestão de orçamento pessoal e 
 
 ---
 
-## Integrantes do Grupo
+## Integrantes
 
 - Carlos Florenzano, MA: 06014437
 - Lucas Gomes, MA: 06014478
@@ -12,6 +12,94 @@ O **Portfy** é um sistema em C# voltado para a gestão de orçamento pessoal e 
 - Arthur Salonikio, MA: 06014408
 - Karina Braga Louzada, MA: 06013932
 - Miguel Martins, MA: 06014120
+
+---
+
+## Como executar
+
+### Pré-requisitos
+
+- **.NET SDK 10** — confirme com `dotnet --version` (deve responder `10.x`)
+- **Node.js 20+** — necessário apenas para o frontend (validado com Node 24 e Vite 8)
+
+### Backend — compilar e testar
+
+```bash
+dotnet restore
+dotnet build Portfy.csproj
+dotnet test tests/Portfy.Tests
+```
+
+A suíte completa tem **247 testes** e o build não emite avisos.
+
+### Backend — subir a API
+
+É obrigatório definir a chave de assinatura do JWT (mínimo 32 bytes; o exemplo usa 64).
+Sem ela o processo encerra no startup com `Auth:Jwt:Chave não está configurada`:
+
+```bash
+export Auth__Jwt__Chave="chave-local-de-64-caracteres-para-desenvolvimento-000000"
+
+dotnet run --project Portfy.csproj
+```
+
+No PowerShell: `$env:Auth__Jwt__Chave="..."`.
+
+A API responde em **http://localhost:5000** (porta padrão do Kestrel, já que o projeto
+não tem `launchSettings.json`). O Swagger UI só é habilitado em ambiente de
+desenvolvimento:
+
+```bash
+export ASPNETCORE_ENVIRONMENT=Development   # então abra http://localhost:5000/swagger
+```
+
+O banco `portfy.db` (SQLite) é criado no primeiro startup e migrado automaticamente —
+não há passo manual de banco de dados.
+
+### Frontend — SPA em React + Vite
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+O SPA abre em **http://localhost:5173** e consome `http://localhost:5000/api`
+(endereço definido em `frontend/src/services/api.ts`). O CORS do backend já permite
+`http://localhost:5173` e `http://localhost:3000`.
+
+Build de produção:
+
+```bash
+cd frontend
+npm run build     # gera dist/
+```
+
+### Verificação rápida
+
+| O que | Comando | Esperado |
+|---|---|---|
+| Compila | `dotnet build Portfy.csproj` | 0 erros, 0 avisos |
+| Testes | `dotnet test tests/Portfy.Tests` | 247 aprovados |
+| API no ar | `curl http://localhost:5000/api/ativo` | `200` com o catálogo de ativos |
+| Frontend | `cd frontend && npm run build` | `built in …` |
+
+### Problema comum: restore do NuGet
+
+Se `dotnet restore` ou `dotnet build` falhar com
+`NuGet.targets(...): error : Value cannot be null. (Parameter 'path1')`, o shell está
+sem as variáveis de pasta do Windows. Exporte-as com os caminhos da sua máquina antes
+do comando:
+
+```bash
+env APPDATA='C:\Users\<usuario>\AppData\Roaming' \
+    LOCALAPPDATA='C:\Users\<usuario>\AppData\Local' \
+    PROGRAMDATA='C:\ProgramData' \
+    ALLUSERSPROFILE='C:\ProgramData' \
+    PROGRAMFILES='C:\Program Files' \
+    'PROGRAMFILES(X86)=C:\Program Files (x86)' \
+    dotnet test tests/Portfy.Tests
+```
 
 ---
 

@@ -37,7 +37,7 @@ Notação das ondas (§8): `1` = pré-requisito de todas as outras, `5` = borda/
 | `Acao`, `FundoImobiliario`, `RendaFixa`, `Cripto`, `Etf` | `Models/Ativos/` | polimorfismo de `CalcularRendimento` | TPH com discriminador `Tipo` |
 | `TipoAtivo` | `Models/Ativos/TipoAtivo.cs` | enum de categoria | usado como discriminador |
 
-Detalhe relevante: `Posicao` está declarada **dentro** de `Models/CarteiraSimulada.cs` e `Models/Posicao.cs` está inteiro comentado (`arch.md` P2-b). As FKs `AtivoId` e `CarteiraSimuladaId` existem hoje como *shadow properties* em `Data/Configurations/` — ver §3.
+Detalhe relevante: `Posicao` está declarada **dentro** de `Models/CarteiraSimulada.cs`; **não existe** `Models/Posicao.cs` (a versão anterior deste documento afirmava que o arquivo existia comentado — a afirmação estava errada). As FKs `AtivoId` e `CarteiraId` são explícitas nas propriedades e mapeadas em `Data/Configurations/` — ver §3.
 
 ```mermaid
 classDiagram
@@ -47,14 +47,21 @@ classDiagram
         +string Login
         +decimal SalarioMensal
         +bool ContaVerificada
-        +VerificarLogin(login, senha) bool
+        +AtualizarNome(novoNome)
+        +AtualizarSalario(novoSalario)
+        +CalcularRendaDisponivel(totalDespesas) decimal
+        +VerificarConta()
     }
     class CarteiraSimulada {
         +int Id
         +decimal SaldoDisponivel
+        +StatusCarteira Status
         +ComprarAtivo(ativo, quantidade)
         +VenderAtivo(ativo, quantidade)
         +CalcularPatrimonioTotal() decimal
+        +Suspender()
+        +Reativar()
+        +Encerrar()
     }
     class Posicao {
         +int Id
