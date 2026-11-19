@@ -20,6 +20,14 @@ public sealed class CarteiraSimuladaConfiguration : IEntityTypeConfiguration<Car
         builder.Property(c => c.Nome).IsRequired().HasMaxLength(100);
         builder.Property(c => c.SaldoDisponivel).HasPrecision(18, 2);
 
+        // Estado nomeado gravado como texto legível (Ativa/Suspensa/Encerrada).
+        // O valor padrão cobre as linhas que já existiam antes desta coluna.
+        builder.Property(c => c.Status)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired()
+            .HasDefaultValue(StatusCarteira.Ativa);
+
         // Um usuário pode ter várias simulações, mas não duas com o mesmo nome.
         builder.HasIndex(c => new { c.UsuarioId, c.Nome }).IsUnique();
 

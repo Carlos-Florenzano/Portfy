@@ -22,6 +22,10 @@ public class CarteiraSimulada
     // Propriedades com private set para integridade dos dados
     public decimal SaldoDisponivel { get; private set; }
 
+    // Estado nomeado (3 valores) do ciclo de vida da simulação. Só muda pelos métodos
+    // de transição abaixo; o EF materializa o valor persistido pelo backing field.
+    public StatusCarteira Status { get; private set; } = StatusCarteira.Ativa;
+
     // Listas internas privadas para proteger o estado do objeto
     private readonly List<Posicao> _posicoes = new();
     private readonly List<AporteSimulado> _aportes = new();
@@ -86,6 +90,8 @@ public class CarteiraSimulada
         // É o famoso thread safety, que garante esse tipo de segurança, que é crucial ainda mais em dados financeiros.
         lock (_lock)
         {
+            GarantirCarteiraAtiva();
+
             _aportes.Add(aporte);
             SaldoDisponivel += aporte.ValorAportado;
         }
@@ -102,6 +108,8 @@ public class CarteiraSimulada
 
         lock (_lock)
         {
+            GarantirCarteiraAtiva();
+
             decimal valorTotalCompra = ativo.PrecoAtual * quantidade;
 
             if (valorTotalCompra > SaldoDisponivel)
@@ -135,6 +143,8 @@ public class CarteiraSimulada
 
         lock (_lock)
         {
+            GarantirCarteiraAtiva();
+
             Posicao? posicao = _posicoes.FirstOrDefault(p => p.Ativo == ativo);
 
             if (posicao == null || posicao.Quantidade < quantidade)
@@ -150,6 +160,54 @@ public class CarteiraSimulada
                 _posicoes.Remove(posicao);
             }
         }
+    }
+
+    // ---- Transições de estado (A05) ----
+    // Todas preservam a identidade do agregado (mesma instância, mesmo Id) e são
+    // atômicas sob _lock: ou o estado muda por completo, ou nada muda.
+
+    public void Suspender()
+    {
+        lock (_lock)
+        {
+            if (Status != StatusCarteira.Ativa)
+                throw new InvalidOperationException(
+                    $"Somente carteira ativa pode ser suspensa. Estado atual: {Status}.");
+
+            Status = StatusCarteira.Suspensa;
+        }
+    }
+
+    public void Reativar()
+    {
+        lock (_lock)
+        {
+            if (Status != StatusCarteira.Suspensa)
+                throw new InvalidOperationException(
+                    $"Somente carteira suspensa pode ser reativada. Estado atual: {Status}.");
+
+            Status = StatusCarteira.Ativa;
+        }
+    }
+
+    public void Encerrar()
+    {
+        lock (_lock)
+        {
+            if (Status == StatusCarteira.Encerrada)
+                throw new InvalidOperationException("A carteira já está encerrada.");
+
+            Status = StatusCarteira.Encerrada;
+        }
+    }
+
+    // Guarda das transições: chamado no início de toda mutação de saldo/posição.
+    // Fica dentro do _lock para que a checagem e a escrita sejam um passo só.
+    private void GarantirCarteiraAtiva()
+    {
+        if (Status != StatusCarteira.Ativa)
+            throw new InvalidOperationException(
+                $"A carteira não aceita movimentação no estado {Status}.");
     }
 
     public decimal CalcularPatrimonioTotal()

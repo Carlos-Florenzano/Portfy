@@ -106,9 +106,10 @@ Tabelas reais geradas por `Data/Migrations/20261101003441_InitialCreate`, com os
 ```mermaid
 erDiagram
     USUARIO ||--o{ APORTE : "origem do salario"
-    CARTEIRA |o--o{ APORTE : "vinculo opcional"
+    CARTEIRA ||--o{ APORTE : "obrigatorio RESTRICT"
     CARTEIRA ||--o{ POSICAO : "composicao CASCADE"
     ATIVO ||--o{ POSICAO : "associacao RESTRICT"
+    USUARIO ||--o{ ORCAMENTO : "dono"
 
     USUARIO {
         int Id PK
@@ -121,7 +122,10 @@ erDiagram
     }
     CARTEIRA {
         int Id PK
+        int UsuarioId FK
+        string Nome
         decimal SaldoDisponivel
+        string Status
     }
     POSICAO {
         int Id PK
@@ -139,10 +143,12 @@ erDiagram
     }
     ORCAMENTO {
         int Id PK
+        int UsuarioId FK
         string NomeCategoria
         decimal LimiteDefinido
         decimal ValorGastoAtual
         decimal PercentualDoSalario
+        boolean EhFixo
     }
     ATIVO {
         int Id PK
@@ -158,10 +164,11 @@ Ordem de exclusão importa e está no diagrama: `Posicao` morre com a carteira (
 
 Observações verificadas no mapeamento:
 
-1. **`CarteiraSimuladaId` em `APORTE` é anulável** porque o modelo de domínio não declara essa FK (`AporteSimuladoConfiguration.cs:26-30`); é uma *shadow property*.
+1. **`CarteiraSimuladaId` em `APORTE` é obrigatória** (`AporteSimuladoConfiguration.cs` usa `IsRequired`; a migration `PosseDaCarteira` converteu a coluna para `NOT NULL` após o backfill). O nome histórico da coluna foi mantido.
 2. **`ATIVO` é TPH**: uma tabela, discriminador string na coluna `Tipo` (`Acao`, `Fii`, `Cripto`, `Etf`, `RendaFixa`), com as colunas de subtipo anuláveis.
-3. **`ORCAMENTO` não tem dono**: nenhuma FK para `USUARIO` hoje — é o delta de modelagem já registrado (`diagrama-classe-candidatas.md` §3).
+3. **`ORCAMENTO` tem dono**: FK `UsuarioId` obrigatória e índice único `(UsuarioId, NomeCategoria)` (`OrcamentoConfiguration.cs`). A observação anterior ("sem dono") ficou desatualizada após a migration de posse.
 4. `Ticker` tem índice **único** e colação `NOCASE`.
+5. **`CARTEIRA.Status`** guarda o estado nomeado como texto (`Ativa`/`Suspensa`/`Encerrada`), com valor padrão `Ativa` (migration `20261119025829_StatusDaCarteira`).
 
 ---
 

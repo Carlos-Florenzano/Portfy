@@ -1,0 +1,365 @@
+{
+  "versao": "1.0",
+  "projeto": "Portfy",
+  "avaliacao": "TRABALHO PRATICO - AV2 (Design e Programacao Orientados a Objetos)",
+  "gerado_em": "2026-11-19",
+  "base": {
+    "branch": "frontend",
+    "commit": "8e069f1",
+    "origin_main": "b735253",
+    "observacao": "git diff HEAD origin/main vazio: a arvore auditada e a entregue na branch padrao"
+  },
+  "gates": {
+    "build": "0 erros, 0 avisos",
+    "testes": "247 aprovados, 0 falhas",
+    "clone_limpo": "git archive HEAD + restore + build + test = 247 aprovados",
+    "smoke_http": "GET api/ativo/PETR4/rendimento?quantidade=10 = 200 com 3.85; HGLG11 = 200 com 11.0; quantidade 0 = 400; ticker inexistente = 404",
+    "migracao_em_banco_existente": "portfy.db recebeu a coluna Status nas Carteiras e a linha existente ficou 'Ativa'"
+  },
+  "documentos": {
+    "requisitos": "docs/av2/requisitos.md",
+    "modelo_de_classes": "docs/av2/modelo-de-classes.md",
+    "analise_do_modelo": "docs/av2/analise-do-modelo.md",
+    "revisao_de_codigo": "docs/av2/revisao-de-codigo.md",
+    "registro_de_depuracao": "docs/av2/registro-de-depuracao.md",
+    "rastreabilidade": "docs/av2/rastreabilidade.md",
+    "auditoria_final": "docs/av2/auditoria-final.md"
+  },
+  "itens": [
+    {
+      "codigo": "A01",
+      "situacao": "atendido",
+      "evidencias": [
+        "Models/Usuario.cs",
+        "Models/CarteiraSimulada.cs",
+        "Models/Ativos/Ativo.cs",
+        "Models/Ativos/Acao.cs",
+        "Models/Ativos/FundoImobiliario.cs",
+        "Models/Ativos/RendaFixa.cs",
+        "Models/Ativos/Cripto.cs",
+        "Models/Ativos/Etf.cs",
+        "Models/AporteSimulado.cs",
+        "Models/Orcamento.cs"
+      ]
+    },
+    {
+      "codigo": "A02",
+      "situacao": "atendido",
+      "evidencias": [
+        "Models/CarteiraSimulada.cs:ComprarAtivo",
+        "Models/CarteiraSimulada.cs:VenderAtivo",
+        "Models/CarteiraSimulada.cs:CalcularPatrimonioTotal",
+        "Models/Ativos/Ativo.cs:AtualizarPreco",
+        "Models/Ativos/Ativo.cs:CalcularRendimento",
+        "Models/Orcamento.cs:AdicionarDespesa"
+      ]
+    },
+    {
+      "codigo": "A03",
+      "situacao": "atendido",
+      "evidencias": [
+        "docs/av2/requisitos.md#3-as-cinco-regras-de-negocio",
+        "Models/CarteiraSimulada.cs:116",
+        "Models/CarteiraSimulada.cs:151",
+        "Models/Ativos/Ativo.cs:47",
+        "Data/Configurations/OrcamentoConfiguration.cs:25",
+        "Models/Orcamento.cs:90"
+      ]
+    },
+    {
+      "codigo": "A04",
+      "situacao": "atendido",
+      "evidencias": [
+        "Models/CarteiraSimulada.cs:ComprarAtivo",
+        "Models/CarteiraSimulada.cs:Posicao",
+        "tests/Portfy.Tests/Models/InvariantesDaCarteiraTests.cs:ComprarAtivo_CalculaPrecoMedioPonderadoAposMultiplasCompras"
+      ]
+    },
+    {
+      "codigo": "A05",
+      "situacao": "atendido",
+      "evidencias": [
+        "Models/StatusCarteira.cs",
+        "Models/CarteiraSimulada.cs:Suspender",
+        "Models/CarteiraSimulada.cs:Reativar",
+        "Models/CarteiraSimulada.cs:Encerrar",
+        "tests/Portfy.Tests/Models/EstadosDaCarteiraTests.cs"
+      ]
+    },
+    {
+      "codigo": "A06",
+      "situacao": "atendido",
+      "evidencias": [
+        "tests/Portfy.Tests/Models/EstadosDaCarteiraTests.cs:Reativar_DeEncerrada_EProibido_EMantemEstadoESaldo",
+        "tests/Portfy.Tests/Data/StatusDaCarteiraPersistenciaTests.cs:TransicaoProibida_NaoAlteraRegistroPersistido",
+        "Data/Migrations/20261119025829_StatusDaCarteira.cs"
+      ]
+    },
+    {
+      "codigo": "A07",
+      "situacao": "atendido",
+      "evidencias": [
+        "Models/CarteiraSimulada.cs:private readonly List<Posicao> _posicoes",
+        "Models/CarteiraSimulada.cs:IReadOnlyCollection<Posicao> Posicoes",
+        "Models/Ativos/Ativo.cs:protected set",
+        "docs/funcionalidades.md#11-regras-transversais-do-sistema"
+      ]
+    },
+    {
+      "codigo": "A08",
+      "situacao": "atendido",
+      "evidencias": [
+        "Models/Ativos/Ativo.cs:CalcularRendimento (abstrato)",
+        "Services/AtivoService.cs:CalcularRendimentoEstimado",
+        "Controllers/AtivoController.cs:GET {ticker}/rendimento",
+        "tests/Portfy.Tests/Services/RendimentoPolimorficoTests.cs",
+        "tests/Portfy.Tests/Api/RendimentoApiTests.cs"
+      ]
+    },
+    {
+      "codigo": "B01",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/modelo-de-classes.md#1-diagrama"]
+    },
+    {
+      "codigo": "B02",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/modelo-de-classes.md#2-correspondencia-com-o-codigo-b02"]
+    },
+    {
+      "codigo": "B03",
+      "situacao": "atendido",
+      "evidencias": [
+        "docs/av2/modelo-de-classes.md#3-atributos-metodos-e-o-que-cada-um-garante-b03",
+        "docs/diagrama-classe-candidatas.md"
+      ]
+    },
+    {
+      "codigo": "B04",
+      "situacao": "atendido",
+      "evidencias": [
+        "docs/av2/modelo-de-classes.md#5-associacoes-e-multiplicidades-b04",
+        "Data/Configurations/PosicaoConfiguration.cs",
+        "Data/Configurations/OrcamentoConfiguration.cs:25"
+      ]
+    },
+    {
+      "codigo": "B05",
+      "situacao": "atendido",
+      "evidencias": [
+        "docs/av2/modelo-de-classes.md#6-composicao-e-ciclo-de-vida-b05",
+        "Data/Configurations/CarteiraSimuladaConfiguration.cs:HasMany(Posicoes).OnDelete(Cascade)",
+        "docs/diagrama.md#4-modelo-de-dados-persistido"
+      ]
+    },
+    {
+      "codigo": "B06",
+      "situacao": "atendido",
+      "evidencias": [
+        "docs/av2/modelo-de-classes.md#4-contrato-polimorfico-b06",
+        "Models/Ativos/Ativo.cs",
+        "Models/Ativos/Acao.cs",
+        "Models/Ativos/FundoImobiliario.cs"
+      ]
+    },
+    {
+      "codigo": "B07",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/analise-do-modelo.md#1-invariantes-e-o-objeto-responsavel-b07"]
+    },
+    {
+      "codigo": "B08",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/analise-do-modelo.md#2-decisao-1--estado-da-carteira-booleano-ou-estado-nomeado"]
+    },
+    {
+      "codigo": "C01",
+      "situacao": "atendido",
+      "evidencias": [
+        "docs/av2/revisao-de-codigo.md#1-identificacao-da-alteracao-c01",
+        "commit:fe92182"
+      ]
+    },
+    {
+      "codigo": "C02",
+      "situacao": "atendido",
+      "evidencias": [
+        "docs/av2/revisao-de-codigo.md#2-requisito-e-regra-de-negocio-correspondentes-c02",
+        "Services/Contracts/PoliticasDeRateLimit.cs",
+        "Program.cs:AddPolicy(Cadastro)",
+        "tests/Portfy.Tests/Api/CadastroRateLimitTests.cs"
+      ]
+    },
+    {
+      "codigo": "C03",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/revisao-de-codigo.md#3-inventario-dos-arquivos-alterados-c03"]
+    },
+    {
+      "codigo": "C04",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/revisao-de-codigo.md#4-impacto-sobre-regras-contratos-e-dependencias-c04"]
+    },
+    {
+      "codigo": "C05",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/revisao-de-codigo.md#5-avaliacao-por-propriedades-de-poo-c05"]
+    },
+    {
+      "codigo": "C06",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/revisao-de-codigo.md#6-parecer-tecnico-c06"]
+    },
+    {
+      "codigo": "D01",
+      "situacao": "atendido",
+      "evidencias": [
+        "docs/arch.md#141-tres-niveis-sem-sobreposicao",
+        "docs/arch.md#142-politica-de-erro",
+        "docs/av2/requisitos.md#1-convencoes"
+      ]
+    },
+    {
+      "codigo": "D02",
+      "situacao": "atendido",
+      "evidencias": [
+        "Middleware/ExceptionHandlingMiddleware.cs",
+        "tests/Portfy.Tests/Middleware/ExceptionHandlingMiddlewareTests.cs"
+      ]
+    },
+    {
+      "codigo": "D03",
+      "situacao": "atendido",
+      "evidencias": [
+        "Middleware/ExceptionHandlingMiddleware.cs:500 sem stack trace",
+        "tests/Portfy.Tests/Middleware/ExceptionHandlingMiddlewareTests.cs:ExcecaoDesconhecida_Vira500SemVazarDetalheInterno"
+      ]
+    },
+    {
+      "codigo": "D04",
+      "situacao": "atendido",
+      "evidencias": [
+        "tests/Portfy.Tests/Middleware/ExceptionHandlingMiddlewareTests.cs",
+        "tests/Portfy.Tests/Api/CarteiraApiTests.cs:CompraSemSaldo_Retorna422"
+      ]
+    },
+    {
+      "codigo": "E01",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/registro-de-depuracao.md#1-o-defeito-e01"]
+    },
+    {
+      "codigo": "E02",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/registro-de-depuracao.md#2-condicoes-de-reproducao-esperado-e-observado-e02"]
+    },
+    {
+      "codigo": "E03",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/registro-de-depuracao.md#3-hipoteses-e-como-cada-uma-foi-testada-e03"]
+    },
+    {
+      "codigo": "E04",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/registro-de-depuracao.md#4-tecnica-de-depuracao-aplicada-e04"]
+    },
+    {
+      "codigo": "E05",
+      "situacao": "atendido",
+      "evidencias": [
+        "docs/av2/registro-de-depuracao.md#5-causa-raiz-e-correcao-e05",
+        "tests/Portfy.Tests/Api/ApiFactory.cs:Pooling=False"
+      ]
+    },
+    {
+      "codigo": "E06",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/registro-de-depuracao.md#6-verificacao-antesdepois-e06"]
+    },
+    {
+      "codigo": "F01",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/rastreabilidade.md#2-regras--implementacao--testes"]
+    },
+    {
+      "codigo": "F02",
+      "situacao": "atendido",
+      "evidencias": [
+        "tests/Portfy.Tests/Models/InvariantesDaCarteiraTests.cs:ComprarAtivo_RecusaCompraSemSaldoEPreservaEstado",
+        "tests/Portfy.Tests/Models/EstadosDaCarteiraTests.cs:Reativar_DeEncerrada_EProibido_EMantemEstadoESaldo"
+      ]
+    },
+    {
+      "codigo": "F03",
+      "situacao": "atendido",
+      "evidencias": [
+        "tests/Portfy.Tests/Api/CarteiraApiTests.cs:Compra_AlteraSaldoEPosicaoNoBanco",
+        "tests/Portfy.Tests/Api/CarteiraApiTests.cs:Venda_ZeraAPosicaoEAumentaOSaldo"
+      ]
+    },
+    {
+      "codigo": "F04",
+      "situacao": "atendido",
+      "observacao": "build e 247 testes verificados em export limpo; README.md secao 'Como executar' traz os comandos, a variavel obrigatoria Auth__Jwt__Chave e o problema comum de NuGet",
+      "evidencias": [
+        "README.md#como-executar",
+        "Portfy.csproj",
+        "tests/Portfy.Tests/Portfy.Tests.csproj",
+        "docs/av2/auditoria-final.md#1-gates-executados-2026-11-19"
+      ]
+    },
+    {
+      "codigo": "F05",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/rastreabilidade.md"]
+    },
+    {
+      "codigo": "F06",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/auditoria-final.md"]
+    },
+    {
+      "codigo": "G01",
+      "situacao": "atendido",
+      "evidencias": ["docs/av2/requisitos.md"]
+    },
+    {
+      "codigo": "G02",
+      "situacao": "atendido",
+      "evidencias": [
+        "notas/prompts/2026-11-01-prompt_api_financas_Lucas-gomes-01.md",
+        "notas/relatorios_prompt/2026-11-01_relatorio_api-financas_lucas-gomes_01.md",
+        "notas/relatorios_prompt/2026-11-01_relatorio_log-execucao-api-financas_lucas-gomes_01.md"
+      ]
+    }
+  ],
+  "resumo": {
+    "total": 40,
+    "atendidos": 40,
+    "parciais": 0,
+    "nao_atendidos": 0
+  },
+  "riscos": [
+    {
+      "severidade": "bloqueante",
+      "descricao": "README.md nao possui a secao literal '## Integrantes' exigida pelo PDF; sem ela a avaliacao fica bloqueada e a nota e zero",
+      "arquivo": "README.md",
+      "situacao": "nao corrigido nesta rodada por decisao do grupo"
+    },
+    {
+      "severidade": "media",
+      "descricao": "Status da carteira nao e exposto em CarteiraResponse e nao ha endpoint de transicao; a prova de R6 e de dominio e persistencia",
+      "arquivo": "Dtos/Carteira/CarteiraResponse.cs"
+    },
+    {
+      "severidade": "baixa",
+      "descricao": "Endpoints e testes dependem, neste ambiente, das variaveis de pasta do Windows para o restore do NuGet",
+      "arquivo": "notas/relatorios_prompt/2026-11-01_relatorio_log-execucao-api-financas_lucas-gomes_01.md"
+    },
+    {
+      "severidade": "baixa",
+      "descricao": "Alteracoes desta rodada nao foram commitadas",
+      "arquivo": "."
+    }
+  ]
+}

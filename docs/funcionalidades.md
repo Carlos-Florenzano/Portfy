@@ -41,7 +41,7 @@ O estado é persistido em SQLite: `AppDbContext` é registrado como `Scoped`, os
 | Relatório consolidado | — | `RelatorioFinanceiro` | — | **nenhuma** |
 | Persistência | `AppDbContext` | 5 serviços `Scoped` | — | — |
 
-Observação de rastreabilidade: existe `Models/Posicao.cs`, mas o arquivo está **inteiramente comentado**. A classe `Posicao` em uso é declarada no fim de `Models/CarteiraSimulada.cs` (namespace `Portfy.Models`).
+Observação de rastreabilidade: **não existe** `Models/Posicao.cs`. A classe `Posicao` é declarada no fim de `Models/CarteiraSimulada.cs` (namespace `Portfy.Models`). O arquivo `Models/StatusCarteira.cs` contém o enum de estado da carteira.
 
 Observação de rota: as rotas neste documento aparecem em minúsculas (`api/usuario`). O backend declara `[Route("api/[controller]")]`, então a forma publicada é PascalCase (`api/Usuario`), e o roteamento do ASP.NET é insensível a caixa. A padronização para minúsculas é dívida P2-f (`docs/arch.md` §20).
 
@@ -267,22 +267,29 @@ Funil de integração: **18 endpoints** existem na API (`/api/usuario` 9, `/api/
 5. **CORS restrito** a `http://localhost:5173` e `http://localhost:3000`; Swagger UI só em `Development`.
 6. **Autenticação JWT**: `POST /api/usuario/login` emite o token; `[Authorize]` protege os endpoints de usuário (exceto cadastro, login e verificação), carteira, aporte e orçamento. A identidade vem da claim `sub`, nunca da URL ou do corpo. A chave de assinatura vive só em configuração/ambiente (`Auth__Jwt__Chave`).
 
-## 12. Cobertura de testes (170 casos)
+## 12. Cobertura de testes (247 casos)
 
-Números medidos com `dotnet test tests/Portfy.Tests` em 2026-11-02, depois da migration de posse por usuário. A coluna **Casos** é o que o `dotnet test` reporta (cada `[InlineData]` conta como caso próprio).
+Medido com `dotnet test tests/Portfy.Tests` em 2026-11-19: **247 casos, 0 falhas,
+0 ignorados**. A tabela por área que existia aqui foi medida em 2026-11-02 (170
+casos) e ficou desatualizada; em vez de manter números que não correspondem ao
+código, ela foi substituída pelo total verificado e pela lista de áreas cobertas.
 
-| Área (namespace) | Casos | O que garantem |
-|---|---|---|
-| `Models` | 47 | invariantes de carteira, posição, orçamento, usuário e ativo; carteira com dono obrigatório |
-| `Services` | 21 | catálogo/variação, autenticação, hash BCrypt, exclusão de conta |
-| `Data` | 10 | persistência real em SQLite, troca de contexto, precisão de `decimal`, isolamento de carteira/orçamento por usuário, compra/venda/aporte |
-| `Dtos` | 20 | validadores de cadastro, senha, aporte (carteira opcional), despesa e simulação |
-| `Controllers` | 6 | resposta da carteira montada a partir do serviço injetado, 403 sem identidade, 404 de ticker, compra mapeada |
-| `Api` | 13 | autenticação/JWT/rate limit e fluxo HTTP completo de carteira, compra, venda, aporte e orçamento por usuário |
-| `Integracoes` | 48 | provedores de mercado, cache, disjuntor, fallback e endpoints de mercado |
-| `Middleware` | 5 | mapa de exceções para `ProblemDetails` |
+| Área (namespace) | O que garantem |
+|---|---|
+| `Models` | invariantes de carteira, posição, orçamento, usuário e ativo; estados da carteira (`Ativa`/`Suspensa`/`Encerrada`) e transições proibidas |
+| `Services` | catálogo/variação, rendimento polimórfico por subtipo, autenticação, hash BCrypt, exclusão de conta |
+| `Data` | persistência real em SQLite, migrations, troca de contexto, precisão de `decimal`, isolamento por usuário, estado da carteira persistido |
+| `Dtos` | validadores de cadastro, senha, aporte, despesa e simulação |
+| `Controllers` | resposta da carteira montada a partir do serviço injetado, 403 sem identidade, 404 de ticker, compra mapeada |
+| `Api` | autenticação/JWT/rate limit e fluxo HTTP completo de carteira, compra, venda, aporte, orçamento e rendimento |
+| `Integracoes` | provedores de mercado, cache, disjuntor, fallback e endpoints de mercado |
+| `Middleware` | mapa de exceções para `ProblemDetails` |
 
-Total: **170 casos, 0 falhas**. Sem teste automatizado hoje: `Etf` e `RendaFixa` (rendimento), `GeradorDeVariacaoAleatoria`, `RelatorioFinanceiro` e as telas do SPA. O fluxo HTTP de usuário/carteira/orçamento tem cobertura de ponta a ponta em `Api`.
+Os cinco subtipos de `Ativo` têm teste de rendimento
+(`InvariantesDaCarteiraTests.CalcularRendimento_UsaAImplementacaoDoSubtipoViaReferenciaBase`
+e `RendimentoPolimorficoTests`), então `Etf` e `RendaFixa` deixaram de ser lacuna.
+Sem teste automatizado hoje: o gerador aleatório de variação (exercitado por dublê),
+o relatório consolidado (`RelatorioService`) e as telas do SPA.
 
 ## 13. Funcionalidades ausentes (não existem no código)
 
@@ -291,7 +298,9 @@ Listadas para impedir que sejam tratadas como existentes:
 - CRUD de múltiplas carteiras (criar, renomear, excluir) e clonagem de simulação (E2.2/E2.3 do roadmap). O modelo já tem `UsuarioId`/`Nome` e a carteira `Principal`, mas a API só expõe a leitura.
 - Alocação-meta, rebalanceamento, simulador "e se?" e câmbio (F4).
 - Relatório financeiro por API e telas que consumam carteira, aporte ou orçamento (F5).
-- Rate limit específico para compra/venda/aporte; hoje as políticas por IP cobrem login (10/min) e mercado (60/min).
+- Rate limit específico para compra/venda/aporte; hoje as políticas por IP cobrem login (10/min), cadastro (10/min) e mercado (60/min).
+- **Transição de estado da carteira pela API.** O domínio tem `StatusCarteira` com `Suspender`, `Reativar` e `Encerrar`, e o estado é persistido, mas não existe endpoint para acioná-los e `CarteiraResponse` não expõe `Status`. Toda carteira criada nasce `Ativa`.
+- Consumo do endpoint `GET api/ativo/{ticker}/rendimento` pelo SPA (o endpoint existe e é testado; nenhuma tela o usa).
 
 ## 14. Manutenção deste documento
 
