@@ -1,18 +1,23 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import "./Login.css";
 import { mensagemDeErro } from "./services/api";
+import { salvarSessao } from "./services/sessao";
 import { usuarioService } from "./services/UsuarioService";
 
 interface LoginProps {
     onLogin: () => void;
     onCadastro: () => void;
     aviso?: string;
+    erroInicial?: string;
 }
 
-function Login({ onLogin, onCadastro, aviso }: LoginProps) {
+function Login({ onLogin, onCadastro, aviso, erroInicial }: LoginProps) {
     const [email, setEmail] = useState("");
     const [senha, setSenha] = useState("");
-    const [erro, setErro] = useState("");
+    // Controla apenas a exibição do texto: o valor digitado não muda.
+    const [senhaVisivel, setSenhaVisivel] = useState(false);
+    const [erro, setErro] = useState(erroInicial ?? "");
     const [carregando, setCarregando] = useState(false);
 
     async function entrar(event: React.FormEvent) {
@@ -32,12 +37,16 @@ function Login({ onLogin, onCadastro, aviso }: LoginProps) {
                 senha: senha
             });
 
-            // Guarda o ID do utilizador autenticado
-            localStorage.setItem("usuarioLogado", JSON.stringify({
-                id: dados.id,
-                nome: dados.nome,
-                login: dados.login
-            }));
+            // O token é a credencial; os dados do usuário são só cache de UI.
+            salvarSessao({
+                token: dados.token,
+                expiraEm: dados.expiraEm,
+                usuario: {
+                    id: dados.usuario.id,
+                    nome: dados.usuario.nome,
+                    login: dados.usuario.login
+                }
+            });
 
             onLogin();
         } catch (falha: unknown) {
@@ -70,13 +79,27 @@ function Login({ onLogin, onCadastro, aviso }: LoginProps) {
 
                     <div className="campo">
                         <label htmlFor="senha">Senha</label>
-                        <input
-                            id="senha"
-                            type="password"
-                            placeholder="Digite sua senha"
-                            value={senha}
-                            onChange={(event) => setSenha(event.target.value)}
-                        />
+                        <div className="campo-senha">
+                            <input
+                                id="senha"
+                                type={senhaVisivel ? "text" : "password"}
+                                placeholder="Digite sua senha"
+                                value={senha}
+                                onChange={(event) => setSenha(event.target.value)}
+                            />
+                            <button
+                                type="button"
+                                className="botao-senha"
+                                onClick={() => setSenhaVisivel((visivel) => !visivel)}
+                                aria-label={senhaVisivel ? "Ocultar senha" : "Mostrar senha"}
+                                aria-pressed={senhaVisivel}
+                                title={senhaVisivel ? "Ocultar senha" : "Mostrar senha"}
+                            >
+                                {senhaVisivel
+                                    ? <EyeOff size={18} aria-hidden="true" />
+                                    : <Eye size={18} aria-hidden="true" />}
+                            </button>
+                        </div>
                     </div>
 
                     {aviso && !erro && <p className="mensagem-sucesso">{aviso}</p>}
@@ -89,7 +112,7 @@ function Login({ onLogin, onCadastro, aviso }: LoginProps) {
 
                 <p className="cadastro">
                     Ainda não possui uma conta?
-                    <span onClick={onCadastro}>Criar conta</span>
+                    <span onClick={onCadastro}> Criar conta</span>
                 </p>
             </div>
         </div>

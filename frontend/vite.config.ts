@@ -7,8 +7,13 @@ import react from '@vitejs/plugin-react'
 // Ao digitar propriedades dentro dele, o editor sugere automaticamente todas as opções válidas suportadas pelo Vite.
 import { defineConfig } from 'vite'
 
+// Plugin oficial do Tailwind CSS 4 para o Vite: lê os tokens e as classes
+// utilitárias direto do CSS (@import "tailwindcss" em src/index.css), sem
+// arquivo de configuração JavaScript separado.
+import tailwindcss from '@tailwindcss/vite'
+
 // https://vite.dev/config/
 // Exporta a configuração principal que o Vite irá ler ao executar comandos como npm run dev ou npm run build.   
 export default defineConfig({
-  plugins: [react()], // Aqui registas a lista de plugins ativos no projeto.
+  plugins: [react(), tailwindcss()], // Aqui registas a lista de plugins ativos no projeto.
 })

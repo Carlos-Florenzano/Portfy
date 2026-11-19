@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import "./Cadastro.css";
 import { mensagemDeErro } from "./services/api";
 import { usuarioService } from "./services/UsuarioService";
@@ -14,6 +15,9 @@ function Cadastro({ onVoltar, onCadastrado }: CadastroProps) {
     const [salario, setSalario] = useState("");
     const [senha, setSenha] = useState("");
     const [confirmarSenha, setConfirmarSenha] = useState("");
+    // Cada campo tem seu próprio botão: ver uma senha não revela a outra.
+    const [senhaVisivel, setSenhaVisivel] = useState(false);
+    const [confirmarSenhaVisivel, setConfirmarSenhaVisivel] = useState(false);
     const [erro, setErro] = useState("");
     const [carregando, setCarregando] = useState(false);
 
@@ -99,24 +103,52 @@ function Cadastro({ onVoltar, onCadastrado }: CadastroProps) {
 
                     <div className="campo">
                         <label htmlFor="senha">Senha</label>
-                        <input
-                            id="senha"
-                            type="password"
-                            placeholder="Digite sua senha"
-                            value={senha}
-                            onChange={(event) => setSenha(event.target.value)}
-                        />
+                        <div className="campo-senha">
+                            <input
+                                id="senha"
+                                type={senhaVisivel ? "text" : "password"}
+                                placeholder="Digite sua senha"
+                                value={senha}
+                                onChange={(event) => setSenha(event.target.value)}
+                            />
+                            <button
+                                type="button"
+                                className="botao-senha"
+                                onClick={() => setSenhaVisivel((visivel) => !visivel)}
+                                aria-label={senhaVisivel ? "Ocultar senha" : "Mostrar senha"}
+                                aria-pressed={senhaVisivel}
+                                title={senhaVisivel ? "Ocultar senha" : "Mostrar senha"}
+                            >
+                                {senhaVisivel
+                                    ? <EyeOff size={18} aria-hidden="true" />
+                                    : <Eye size={18} aria-hidden="true" />}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="campo">
                         <label htmlFor="confirmarSenha">Confirmar senha</label>
-                        <input
-                            id="confirmarSenha"
-                            type="password"
-                            placeholder="Confirme sua senha"
-                            value={confirmarSenha}
-                            onChange={(event) => setConfirmarSenha(event.target.value)}
-                        />
+                        <div className="campo-senha">
+                            <input
+                                id="confirmarSenha"
+                                type={confirmarSenhaVisivel ? "text" : "password"}
+                                placeholder="Confirme sua senha"
+                                value={confirmarSenha}
+                                onChange={(event) => setConfirmarSenha(event.target.value)}
+                            />
+                            <button
+                                type="button"
+                                className="botao-senha"
+                                onClick={() => setConfirmarSenhaVisivel((visivel) => !visivel)}
+                                aria-label={confirmarSenhaVisivel ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"}
+                                aria-pressed={confirmarSenhaVisivel}
+                                title={confirmarSenhaVisivel ? "Ocultar senha" : "Mostrar senha"}
+                            >
+                                {confirmarSenhaVisivel
+                                    ? <EyeOff size={18} aria-hidden="true" />
+                                    : <Eye size={18} aria-hidden="true" />}
+                            </button>
+                        </div>
                     </div>
 
                     {erro && <p className="mensagem-erro">{erro}</p>}

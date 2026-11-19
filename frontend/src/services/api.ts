@@ -1,5 +1,6 @@
 // Ponto único de acesso HTTP: a instância axios e a tradução de erro vivem aqui, nunca nas telas.
 import axios from 'axios';
+import { EVENTO_SESSAO_EXPIRADA, lerToken, limparSessao } from './sessao';
 
 const MENSAGEM_PADRAO = 'Não foi possível concluir a operação. Tente novamente.';
 const MENSAGEM_SEM_CONEXAO =
@@ -52,11 +53,31 @@ export const api = axios.create({
     baseURL: 'http://localhost:5000/api',
 });
 
+// Interceptor de requisição: o token da sessão vai em toda chamada. Sem token a
+// requisição segue anônima (cadastro, login e catálogo funcionam assim).
+api.interceptors.request.use((configuracao) => {
+    const token = lerToken();
+
+    if (token) {
+        configuracao.headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    return configuracao;
+});
+
 // Interceptor de resposta: toda falha chega ao consumidor como ErroRequisicao,
-// com a mensagem do ProblemDetails (RFC 7807) ou do envelope legado já resolvida.
+// com a mensagem do ProblemDetails (RFC 7807) já resolvida. Um 401 com token
+// presente significa sessão inválida/expirada: limpa a sessão e avisa o App.
 api.interceptors.response.use(
     (resposta) => resposta,
-    (erro: unknown) => Promise.reject(traduzirErro(erro)),
+    (erro: unknown) => {
+        if (axios.isAxiosError(erro) && erro.response?.status === 401 && lerToken()) {
+            limparSessao();
+            window.dispatchEvent(new Event(EVENTO_SESSAO_EXPIRADA));
+        }
+
+        return Promise.reject(traduzirErro(erro));
+    },
 );
 
 // Mensagem exibida em tela para qualquer erro que chegue ao catch de uma tela.

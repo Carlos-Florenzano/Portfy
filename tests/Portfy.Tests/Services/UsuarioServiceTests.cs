@@ -21,6 +21,15 @@ public class UsuarioServiceTests
     }
 
     [Fact]
+    public void Cadastrar_GuardaHashBcryptENuncaASenhaEmTextoPuro()
+    {
+        var usuario = CriarService().Cadastrar("Ana", 3000m, "ana@portfy.test", "segredo123");
+
+        Assert.StartsWith("$2", usuario.SenhaHash);
+        Assert.NotEqual("segredo123", usuario.SenhaHash);
+    }
+
+    [Fact]
     public void LoginJaExiste_DetectaLoginRepetidoIgnorandoCaixa()
     {
         var service = CriarService();
@@ -50,6 +59,28 @@ public class UsuarioServiceTests
 
         Assert.Null(service.Autenticar("ana@portfy.test", "errada"));
         Assert.Null(service.Autenticar("nao-existe@portfy.test", "segredo123"));
+    }
+
+    [Fact]
+    public void AlterarSenha_RecusaSenhaAtualIncorreta()
+    {
+        var service = CriarService();
+        var ana = service.Cadastrar("Ana", 3000m, "ana@portfy.test", "segredo123");
+
+        Assert.Throws<ArgumentException>(() => service.AlterarSenha(ana.Id, "errada", "nova-senha"));
+        Assert.NotNull(service.Autenticar("ana@portfy.test", "segredo123"));
+    }
+
+    [Fact]
+    public void AlterarSenha_TrocaApenasComASenhaAtualCorreta()
+    {
+        var service = CriarService();
+        var ana = service.Cadastrar("Ana", 3000m, "ana@portfy.test", "segredo123");
+
+        service.AlterarSenha(ana.Id, "segredo123", "nova-senha");
+
+        Assert.NotNull(service.Autenticar("ana@portfy.test", "nova-senha"));
+        Assert.Null(service.Autenticar("ana@portfy.test", "segredo123"));
     }
 
     [Fact]

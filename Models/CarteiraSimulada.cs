@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 
 namespace Portfy.Models;
+
 public class CarteiraSimulada
 {
     // Objeto de sincronização para garantir Thread Safety em ambientes multithread
@@ -11,8 +12,19 @@ public class CarteiraSimulada
     [JsonIgnore]
     public int Id { get; private set; }
 
+    // Dono da carteira. É o que separa "minha carteira" de "a carteira" (arch §9.1).
+    [JsonIgnore]
+    public int UsuarioId { get; private set; }
+
+    // Nome da simulação. O usuário pode ter mais de uma carteira; a padrão é "Principal".
+    public string Nome { get; private set; } = string.Empty;
+
     // Propriedades com private set para integridade dos dados
     public decimal SaldoDisponivel { get; private set; }
+
+    // Estado nomeado (3 valores) do ciclo de vida da simulação. Só muda pelos métodos
+    // de transição abaixo; o EF materializa o valor persistido pelo backing field.
+    public StatusCarteira Status { get; private set; } = StatusCarteira.Ativa;
 
     // Listas internas privadas para proteger o estado do objeto
     private readonly List<Posicao> _posicoes = new();
@@ -41,17 +53,24 @@ public class CarteiraSimulada
         }
     }
 
-    // Construtores
-    public CarteiraSimulada()
+    // Construtor exigido pelo EF Core (arch §13.1) para materializar uma carteira persistida.
+    protected CarteiraSimulada()
     {
-        SaldoDisponivel = 0m;
     }
 
-    public CarteiraSimulada(decimal saldoInicial)
+    public CarteiraSimulada(int usuarioId, string nome, decimal saldoInicial)
     {
+        if (usuarioId <= 0)
+            throw new ArgumentException("O ID do usuário deve ser um valor positivo.", nameof(usuarioId));
+
+        if (string.IsNullOrWhiteSpace(nome))
+            throw new ArgumentException("O nome da carteira não pode ser vazio.", nameof(nome));
+
         if (saldoInicial < 0)
             throw new ArgumentException("O saldo inicial não pode ser negativo.", nameof(saldoInicial));
 
+        UsuarioId = usuarioId;
+        Nome = nome;
         SaldoDisponivel = saldoInicial;
     }
 
@@ -61,12 +80,18 @@ public class CarteiraSimulada
         if (aporte == null)
             throw new ArgumentNullException(nameof(aporte));
 
+        if (Id > 0 && aporte.CarteiraId != Id)
+            throw new ArgumentException(
+                "O aporte pertence a outra carteira.",
+                nameof(aporte));
 
         // O _lock trava um aporte por vez, de forma a livrar o problema de dois pedidos um em cada thread, que poderia
         //sobrescrever e apagar os dados de um deles, é uma ferramenta muito específica, mas necessária, de baixo nível do .NET.
         // É o famoso thread safety, que garante esse tipo de segurança, que é crucial ainda mais em dados financeiros.
-        lock (_lock) 
+        lock (_lock)
         {
+            GarantirCarteiraAtiva();
+
             _aportes.Add(aporte);
             SaldoDisponivel += aporte.ValorAportado;
         }
@@ -83,6 +108,8 @@ public class CarteiraSimulada
 
         lock (_lock)
         {
+            GarantirCarteiraAtiva();
+
             decimal valorTotalCompra = ativo.PrecoAtual * quantidade;
 
             if (valorTotalCompra > SaldoDisponivel)
@@ -92,7 +119,9 @@ public class CarteiraSimulada
 
             if (posicao == null)
             {
-                _posicoes.Add(new Posicao(ativo, quantidade, ativo.PrecoAtual));
+                posicao = new Posicao(ativo, quantidade, ativo.PrecoAtual);
+                posicao.VincularCarteira(Id);
+                _posicoes.Add(posicao);
             }
             else
             {
@@ -114,6 +143,8 @@ public class CarteiraSimulada
 
         lock (_lock)
         {
+            GarantirCarteiraAtiva();
+
             Posicao? posicao = _posicoes.FirstOrDefault(p => p.Ativo == ativo);
 
             if (posicao == null || posicao.Quantidade < quantidade)
@@ -129,6 +160,54 @@ public class CarteiraSimulada
                 _posicoes.Remove(posicao);
             }
         }
+    }
+
+    // ---- Transições de estado (A05) ----
+    // Todas preservam a identidade do agregado (mesma instância, mesmo Id) e são
+    // atômicas sob _lock: ou o estado muda por completo, ou nada muda.
+
+    public void Suspender()
+    {
+        lock (_lock)
+        {
+            if (Status != StatusCarteira.Ativa)
+                throw new InvalidOperationException(
+                    $"Somente carteira ativa pode ser suspensa. Estado atual: {Status}.");
+
+            Status = StatusCarteira.Suspensa;
+        }
+    }
+
+    public void Reativar()
+    {
+        lock (_lock)
+        {
+            if (Status != StatusCarteira.Suspensa)
+                throw new InvalidOperationException(
+                    $"Somente carteira suspensa pode ser reativada. Estado atual: {Status}.");
+
+            Status = StatusCarteira.Ativa;
+        }
+    }
+
+    public void Encerrar()
+    {
+        lock (_lock)
+        {
+            if (Status == StatusCarteira.Encerrada)
+                throw new InvalidOperationException("A carteira já está encerrada.");
+
+            Status = StatusCarteira.Encerrada;
+        }
+    }
+
+    // Guarda das transições: chamado no início de toda mutação de saldo/posição.
+    // Fica dentro do _lock para que a checagem e a escrita sejam um passo só.
+    private void GarantirCarteiraAtiva()
+    {
+        if (Status != StatusCarteira.Ativa)
+            throw new InvalidOperationException(
+                $"A carteira não aceita movimentação no estado {Status}.");
     }
 
     public decimal CalcularPatrimonioTotal()
@@ -149,6 +228,14 @@ public class Posicao
     // exatamente o contrato HTTP atual de GET api/carteira.
     [JsonIgnore]
     public int Id { get; private set; }
+
+    // Chaves estrangeiras explícitas (arch §9.1). As colunas do banco mantêm os
+    // nomes históricos (CarteiraSimuladaId/AtivoId) para não renomear dados existentes.
+    [JsonIgnore]
+    public int CarteiraId { get; private set; }
+
+    [JsonIgnore]
+    public int AtivoId { get; private set; }
 
     // Preenchido pelo EF Core; a posição só existe associada a um ativo persistido.
     public Ativo Ativo { get; private set; } = null!;
@@ -172,9 +259,13 @@ public class Posicao
             throw new ArgumentException("O preço médio deve ser um valor positivo.", nameof(precoMedio));
 
         Ativo = ativo;
+        AtivoId = ativo.Id;
         Quantidade = quantidade;
         PrecoMedio = precoMedio;
     }
+
+    // Chamado pela carteira ao criar a posição; o EF confirma as duas FKs no SaveChanges.
+    internal void VincularCarteira(int carteiraId) => CarteiraId = carteiraId;
 
     public void AtualizarPrecoMedioEQuantidade(int quantidadeAdicional, decimal precoAtual)
     {

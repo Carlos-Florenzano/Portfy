@@ -1,141 +1,91 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Portfy.Dtos.Usuario;
 using Portfy.Models;
 using Portfy.Services.Contracts;
 
 namespace Portfy.Controllers;
 
-// Borda HTTP do CRUD de usuários. Nenhum estado fica aqui: a coleção vive no
-// IUsuarioService, injetado pelo container (ver Program.cs).
+// Borda HTTP do CRUD de usuários. Nenhum estado fica aqui: os dados vivem no
+// SQLite via IUsuarioService, injetado pelo container (ver Program.cs).
+// Validação de forma → FluentValidationFilter; exceção → ExceptionHandlingMiddleware.
+// Autorização: todo endpoint exige token, exceto cadastro, login e verificação de
+// conta (esta última é chamada pelo fluxo de cadastro ainda sem sessão).
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class UsuarioController : ControllerBase
 {
     private readonly IUsuarioService _usuarioService;
+    private readonly IAuthService _authService;
 
-    public UsuarioController(IUsuarioService usuarioService)
+    public UsuarioController(IUsuarioService usuarioService, IAuthService authService)
     {
         _usuarioService = usuarioService ?? throw new ArgumentNullException(nameof(usuarioService));
+        _authService = authService ?? throw new ArgumentNullException(nameof(authService));
     }
-
-    #region DTOs (Data Transfer Objects)
-
-    public class CadastroRequest
-    {
-        public string Nome { get; set; } = string.Empty;
-        public decimal SalarioMensal { get; set; }
-        public string Login { get; set; } = string.Empty;
-        public string Senha { get; set; } = string.Empty;
-    }
-
-    public class LoginRequest
-    {
-        public string Login { get; set; } = string.Empty;
-        public string Senha { get; set; } = string.Empty;
-    }
-
-    public class AtualizarUsuarioRequest
-    {
-        public string Nome { get; set; } = string.Empty;
-        public decimal SalarioMensal { get; set; }
-    }
-
-    public class AtualizarSalarioRequest
-    {
-        public decimal NovoSalario { get; set; }
-    }
-
-    public class AlterarSenhaRequest
-    {
-        public string SenhaAtual { get; set; } = string.Empty;
-        public string NovaSenha { get; set; } = string.Empty;
-    }
-
-    #endregion
 
     #region 1. CREATE (Cadastro)
 
     // POST: api/usuario/cadastro
     [HttpPost("cadastro")]
+    [AllowAnonymous]
+    [EnableRateLimiting(PoliticasDeRateLimit.Cadastro)]
     public IActionResult Cadastrar([FromBody] CadastroRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Nome))
-            return BadRequest(new { Mensagem = "O nome não pode ser vazio." });
-
-        if (string.IsNullOrWhiteSpace(request.Login))
-            return BadRequest(new { Mensagem = "O login não pode ser vazio." });
-
-        if (string.IsNullOrWhiteSpace(request.Senha))
-            return BadRequest(new { Mensagem = "A senha não pode ser vazia." });
-
-        if (request.SalarioMensal < 0)
-            return BadRequest(new { Mensagem = "O salário não pode ser negativo." });
-
         if (_usuarioService.LoginJaExiste(request.Login))
-            return Conflict(new { Mensagem = "Esse login já está cadastrado." });
+            return Problem(statusCode: StatusCodes.Status409Conflict, detail: "Esse login já está cadastrado.");
 
-        try
-        {
-            Usuario novoUsuario = _usuarioService.Cadastrar(
-                request.Nome,
-                request.SalarioMensal,
-                request.Login,
-                request.Senha);
+        Usuario novoUsuario = _usuarioService.Cadastrar(
+            request.Nome,
+            request.SalarioMensal,
+            request.Login,
+            request.Senha);
 
-            // 201 Created com a URL do recurso criado no cabeçalho Location
-            return CreatedAtAction(nameof(ObterPorId), new { id = novoUsuario.Id }, new
-            {
-                Mensagem = "Usuário cadastrado com sucesso!",
-                novoUsuario.Id,
-                novoUsuario.Nome,
-                novoUsuario.Login,
-                novoUsuario.ContaVerificada
-            });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { Mensagem = ex.Message });
-        }
+        // 201 Created com a URL do recurso criado no cabeçalho Location.
+        return CreatedAtAction(
+            nameof(ObterPorId),
+            new { id = novoUsuario.Id },
+            MapearConfirmado(novoUsuario, "Usuário cadastrado com sucesso!"));
     }
 
     #endregion
 
     #region 2. READ (Consultas)
 
-    // GET: api/usuario
+    // GET: api/usuario — devolve apenas o usuário do token. A listagem global
+    // vazaria salário de terceiros e só fará sentido com papel de administrador.
     [HttpGet]
-    public IActionResult ObterTodos()
+    public IActionResult ObterProprioUsuario()
     {
-        var lista = _usuarioService.ObterTodos().Select(usuario => new
-        {
-            usuario.Id,
-            usuario.Nome,
-            usuario.Login,
-            usuario.SalarioMensal,
-            usuario.DataRecebimento,
-            usuario.ContaVerificada
-        });
+        int? id = IdDoToken();
 
-        return Ok(lista);
+        if (id is null)
+            return Forbid();
+
+        Usuario? usuario = _usuarioService.ObterPorId(id.Value);
+
+        if (usuario is null)
+            return UsuarioNaoEncontrado();
+
+        return Ok(MapearUsuario(usuario));
     }
 
     // GET: api/usuario/{id}
     [HttpGet("{id}")]
     public IActionResult ObterPorId(int id)
     {
+        if (id != IdDoToken())
+            return Forbid();
+
         Usuario? usuario = _usuarioService.ObterPorId(id);
 
         if (usuario is null)
-            return NotFound(new { Mensagem = "Usuário não encontrado." });
+            return UsuarioNaoEncontrado();
 
-        return Ok(new
-        {
-            usuario.Id,
-            usuario.Nome,
-            usuario.Login,
-            usuario.SalarioMensal,
-            usuario.DataRecebimento,
-            usuario.ContaVerificada
-        });
+        return Ok(MapearUsuario(usuario));
     }
 
     #endregion
@@ -146,75 +96,63 @@ public class UsuarioController : ControllerBase
     [HttpPut("{id}")]
     public IActionResult AtualizarUsuario(int id, [FromBody] AtualizarUsuarioRequest request)
     {
-        try
-        {
-            Usuario? usuario = _usuarioService.AtualizarDados(id, request.Nome, request.SalarioMensal);
+        if (id != IdDoToken())
+            return Forbid();
 
-            if (usuario is null)
-                return NotFound(new { Mensagem = "Usuário não encontrado." });
+        Usuario? usuario = _usuarioService.AtualizarDados(id, request.Nome, request.SalarioMensal);
 
-            return Ok(new
-            {
-                Mensagem = "Dados do usuário atualizados com sucesso!",
-                usuario.Id,
-                usuario.Nome,
-                usuario.SalarioMensal
-            });
-        }
-        catch (ArgumentException ex)
+        if (usuario is null)
+            return UsuarioNaoEncontrado();
+
+        return Ok(new AtualizacaoUsuarioResponse
         {
-            return BadRequest(new { Mensagem = ex.Message });
-        }
+            Mensagem = "Dados do usuário atualizados com sucesso!",
+            Id = usuario.Id,
+            Nome = usuario.Nome,
+            SalarioMensal = usuario.SalarioMensal,
+        });
     }
 
     // PUT: api/usuario/{id}/salario (Atualização específica do salário)
     [HttpPut("{id}/salario")]
     public IActionResult AtualizarSalario(int id, [FromBody] AtualizarSalarioRequest request)
     {
+        if (id != IdDoToken())
+            return Forbid();
+
         Usuario? usuario = _usuarioService.ObterPorId(id);
 
         if (usuario is null)
-            return NotFound(new { Mensagem = "Usuário não encontrado." });
+            return UsuarioNaoEncontrado();
 
-        if (request.NovoSalario <= 0)
-            return BadRequest(new { Mensagem = "O salário mensal deve ser um valor maior que zero." });
+        decimal salarioAnterior = usuario.SalarioMensal;
 
-        try
+        Usuario? atualizado = _usuarioService.AtualizarSalario(id, request.NovoSalario);
+
+        if (atualizado is null)
+            return UsuarioNaoEncontrado();
+
+        return Ok(new AtualizacaoSalarioResponse
         {
-            decimal salarioAnterior = usuario.SalarioMensal;
-
-            _usuarioService.AtualizarSalario(id, request.NovoSalario);
-
-            return Ok(new
-            {
-                Mensagem = "Salário atualizado com sucesso!",
-                SalarioAnterior = salarioAnterior,
-                NovoSalario = usuario.SalarioMensal
-            });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { Mensagem = ex.Message });
-        }
+            Mensagem = "Salário atualizado com sucesso!",
+            SalarioAnterior = salarioAnterior,
+            NovoSalario = atualizado.SalarioMensal,
+        });
     }
 
     // PUT: api/usuario/{id}/senha (Alteração segura de senha)
     [HttpPut("{id}/senha")]
     public IActionResult AlterarSenha(int id, [FromBody] AlterarSenhaRequest request)
     {
-        try
-        {
-            Usuario? usuario = _usuarioService.AlterarSenha(id, request.SenhaAtual, request.NovaSenha);
+        if (id != IdDoToken())
+            return Forbid();
 
-            if (usuario is null)
-                return NotFound(new { Mensagem = "Usuário não encontrado." });
+        Usuario? usuario = _usuarioService.AlterarSenha(id, request.SenhaAtual, request.NovaSenha);
 
-            return Ok(new { Mensagem = "Senha alterada com sucesso!" });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { Mensagem = ex.Message });
-        }
+        if (usuario is null)
+            return UsuarioNaoEncontrado();
+
+        return Ok(new MensagemResponse { Mensagem = "Senha alterada com sucesso!" });
     }
 
     #endregion
@@ -225,56 +163,92 @@ public class UsuarioController : ControllerBase
     [HttpDelete("{id}")]
     public IActionResult ExcluirUsuario(int id)
     {
+        if (id != IdDoToken())
+            return Forbid();
+
         Usuario? removido = _usuarioService.Excluir(id);
 
         if (removido is null)
-            return NotFound(new { Mensagem = "Usuário não encontrado." });
+            return UsuarioNaoEncontrado();
 
-        return Ok(new { Mensagem = $"Usuário '{removido.Nome}' removido com sucesso!" });
+        return Ok(new MensagemResponse
+        {
+            Mensagem = $"Usuário '{removido.Nome}' removido com sucesso!",
+        });
     }
 
     #endregion
 
     #region Ações de Autenticação / Conta
 
-    // POST: api/usuario/login
+    // POST: api/usuario/login — emite o JWT consumido pelo SPA (ADR-010).
     [HttpPost("login")]
+    [AllowAnonymous]
+    [EnableRateLimiting(PoliticasDeRateLimit.Login)]
     public IActionResult Login([FromBody] LoginRequest request)
     {
         Usuario? usuario = _usuarioService.Autenticar(request.Login, request.Senha);
 
         if (usuario is null)
-            return Unauthorized(new { Mensagem = "Login ou senha incorretos." });
+            return Problem(statusCode: StatusCodes.Status401Unauthorized, detail: "Login ou senha incorretos.");
 
         if (!usuario.ContaVerificada)
-            return Unauthorized(new { Mensagem = "A conta ainda não foi verificada." });
+            return Problem(statusCode: StatusCodes.Status401Unauthorized, detail: "A conta ainda não foi verificada.");
 
-        return Ok(new
+        TokenAcesso acesso = _authService.GerarToken(usuario);
+
+        return Ok(new LoginResponse
         {
             Mensagem = "Login realizado com sucesso!",
-            usuario.Id,
-            usuario.Nome,
-            usuario.Login,
-            usuario.ContaVerificada
+            Token = acesso.Token,
+            ExpiraEm = acesso.ExpiraEm,
+            Usuario = MapearUsuario(usuario),
         });
     }
 
-    // POST: api/usuario/{id}/verificar
+    // POST: api/usuario/{id}/verificar — usado pelo fluxo de cadastro, ainda sem sessão.
     [HttpPost("{id}/verificar")]
+    [AllowAnonymous]
     public IActionResult VerificarConta(int id)
     {
         Usuario? usuario = _usuarioService.VerificarConta(id);
 
         if (usuario is null)
-            return NotFound(new { Mensagem = "Usuário não encontrado." });
+            return UsuarioNaoEncontrado();
 
-        return Ok(new
+        return Ok(new VerificacaoContaResponse
         {
             Mensagem = "Conta verificada com sucesso!",
-            usuario.Id,
-            usuario.ContaVerificada
+            Id = usuario.Id,
+            ContaVerificada = usuario.ContaVerificada,
         });
     }
 
     #endregion
+
+    private UsuarioResponse MapearUsuario(Usuario usuario) => new()
+    {
+        Id = usuario.Id,
+        Nome = usuario.Nome,
+        Login = usuario.Login,
+        SalarioMensal = usuario.SalarioMensal,
+        DataRecebimento = usuario.DataRecebimento,
+        ContaVerificada = usuario.ContaVerificada,
+    };
+
+    private UsuarioConfirmadoResponse MapearConfirmado(Usuario usuario, string mensagem) => new()
+    {
+        Mensagem = mensagem,
+        Id = usuario.Id,
+        Nome = usuario.Nome,
+        Login = usuario.Login,
+        ContaVerificada = usuario.ContaVerificada,
+    };
+
+    private ObjectResult UsuarioNaoEncontrado() =>
+        Problem(statusCode: StatusCodes.Status404NotFound, detail: "Usuário não encontrado.");
+
+    // Identidade vem do token, nunca do id da URL (arch E1.2, item 4).
+    private int? IdDoToken() =>
+        int.TryParse(User.FindFirstValue(ClaimsPortfy.Identificador), out int id) ? id : null;
 }
